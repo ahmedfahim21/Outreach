@@ -27,7 +27,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, Wallet as WalletIcon, Building2, ArrowRight, Sparkles, Shield, Zap } from "lucide-react";
-import prisma from "@/lib/prisma";
 
 // Form schema
 const formSchema = z.object({
