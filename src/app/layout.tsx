@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Urbanist } from "next/font/google";
 import "./globals.css";
-import { Providers } from "@/providers/onchainkit";
+import { OnChainProviders } from "@/providers/onchainkit";
+import { AuthProvider } from "@/contexts/auth-context";
 
 const urbanist = Urbanist({
   variable: "--font-urbanist",
@@ -22,9 +23,11 @@ export default function RootLayout({
       <body
         className={`${urbanist.variable} antialiased`}
       >
-        <Providers>
+        <OnChainProviders>
+          <AuthProvider>
             {children}
-        </Providers>
+          </AuthProvider>
+        </OnChainProviders>
       </body>
     </html>
   );

@@ -15,13 +15,12 @@ import {
     WalletDropdownDisconnect,
 } from "@coinbase/onchainkit/wallet";
 import {
-    Address,
     Avatar,
     Name,
     Identity,
     EthBalance,
 } from "@coinbase/onchainkit/identity";
-import { CreditCardIcon, FlagIcon, PlusIcon, SettingsIcon, UserIcon } from "lucide-react"
+import { ChevronLeft, CreditCardIcon, FlagIcon, PersonStanding, PlusIcon, SettingsIcon, UserIcon } from "lucide-react"
 import Image from "next/image"
 import { Button } from "./ui/button"
 import { useSelectedLayoutSegment } from "next/navigation";
@@ -33,7 +32,7 @@ export function AppSidebar() {
 
     return (
         <Sidebar>
-            <SidebarHeader className="bg-background pb-5">
+            <SidebarHeader className="bg-background">
                 <div className="flex items-center gap-2 m-4 text-secondary">
                     <Image src="/outreachAI.png" alt="Logo" width={40} height={40} />
                     <h1 className="text-xl font-semibold">OutreachAI</h1>
@@ -41,8 +40,16 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent className="bg-background">
+                <SidebarGroup className="h-6">
+                    {path && (
+                        <Link href="/dashboard" className="flex items-center text-secondary transition-colors mb-2 px-2 py-1 rounded-md hover:bg-secondary/10">
+                            <ChevronLeft className="w-4 h-4 mr-1" />
+                            <span className="text-sm font-medium">Back to Dashboard</span>
+                        </Link>
+                    )}
+                </SidebarGroup>
                 <SidebarGroup>
-                    <Button variant="secondary">
+                    <Button variant="secondary" className="h-12">
                         <PlusIcon className="mr-1" />
                         Create New Campaign
                     </Button>
@@ -91,6 +98,17 @@ export function AppSidebar() {
                         </Button>
                     </Link>
                 </SidebarGroup>
+                <SidebarGroup>
+                    <Link href="/dashboard/profile" className="w-full">
+                        <Button
+                            variant={path === "profile" ? "default" : "ghost"}
+                            className="w-full justify-start"
+                        >
+                            <PersonStanding className="mr-2 w-4 h-4" />
+                            Profile
+                        </Button>
+                    </Link>
+                </SidebarGroup>
             </SidebarContent>
 
             <SidebarFooter className="bg-background">
@@ -114,6 +132,7 @@ export function AppSidebar() {
                         >
                             Wallet
                         </WalletDropdownLink>
+                        <WalletDropdownDisconnect/>
                     </WalletDropdown>
                 </Wallet>
             </SidebarFooter>

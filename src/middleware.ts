@@ -2,15 +2,22 @@ import { NextResponse } from "next/server";
 import { NextRequest } from "next/server";
 
 export const middleware = async (request: NextRequest) => {
-  const paymentHeader = request.cookies.get("payment-session");
-  if (!paymentHeader) {
-    return NextResponse.rewrite(new URL("/paywall", request.url));
+  const { pathname } = request.nextUrl;
+  
+  if (pathname.startsWith('/protected') || pathname.startsWith('/paywall')) {
+    const paymentHeader = request.cookies.get("payment-session");
+    if (!paymentHeader) {
+      return NextResponse.rewrite(new URL("/paywall", request.url));
+    }
+  }
+  
+  if (pathname.startsWith('/dashboard')) {
+    return NextResponse.next();
   }
 
   return NextResponse.next();
 };
 
-// Configure which paths the middleware should run on
 export const config = {
-  matcher: ["/protected/:path*"],
+  matcher: ["/protected/:path*", "/dashboard/:path*"],
 };

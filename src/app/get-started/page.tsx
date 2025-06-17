@@ -15,7 +15,7 @@ import {
     EthBalance,
 } from "@coinbase/onchainkit/identity";
 import { useAccount } from "wagmi";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -29,6 +29,7 @@ import { Separator } from "@/components/ui/separator";
 import { CheckCircle, Wallet as WalletIcon, Building2, ArrowRight, Sparkles, Shield, Zap } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 
 // Form schema
 const formSchema = z.object({
@@ -45,6 +46,7 @@ const formSchema = z.object({
 
 export default function GetStartedPage() {
     const { address, isConnected } = useAccount();
+    const { user, isLoading, setUser } = useAuth();
     const [currentStep, setCurrentStep] = useState(1);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const router = useRouter();
@@ -71,10 +73,31 @@ export default function GetStartedPage() {
                 walletAddress: address || "",
             }),
         })
+        .then(response => response.json())
+        .then(data => {
+            if (data && !data.error) {
+                setUser(data);
+            } else {
+                console.error("Error creating user:", data.error);
+                setIsSubmitted(false);
+            }
+        })
+        .catch(error => {
+            console.error("Error creating user:", error);
+            setIsSubmitted(false);
+        });
     }
 
+    useEffect(() => {
+        if (user && isConnected) {
+            router.push('/dashboard');
+        } else if (isConnected && address && !isLoading) {
+            setCurrentStep(2);
+        }
+    }, [user, isConnected, address, isLoading, router]);
+
     const handleNext = () => {
-        if (currentStep === 1 && isConnected) {
+        if (currentStep === 1 && isConnected && !user) {
             setCurrentStep(2);
         }
     };
