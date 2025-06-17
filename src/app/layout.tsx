@@ -9,8 +9,7 @@ const urbanist = Urbanist({
 });
 
 export const metadata: Metadata = {
-  title: 'x402.org',
-  description: 'A chain-agnostic protocol for web payments',
+  title: 'OutreachAI'
 };
 
 export default function RootLayout({

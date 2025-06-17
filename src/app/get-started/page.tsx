@@ -27,6 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, Wallet as WalletIcon, Building2, ArrowRight, Sparkles, Shield, Zap } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 // Form schema
 const formSchema = z.object({
@@ -38,22 +40,21 @@ const formSchema = z.object({
     }),
     contactEmail: z.string().email({
         message: "Please enter a valid email address.",
-    }),
-    website: z.string().url().optional().or(z.literal("")),
+    })
 });
 
 export default function GetStartedPage() {
     const { address, isConnected } = useAccount();
     const [currentStep, setCurrentStep] = useState(1);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const router = useRouter();
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             companyName: "",
             purpose: "",
-            contactEmail: "",
-            website: "",
+            contactEmail: ""
         },
     });
 
@@ -79,31 +80,27 @@ export default function GetStartedPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-100">
-            {/* Background Pattern */}
-            <div className="absolute inset-0 bg-grid-slate-200/50 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))]" />
-            
-            <main className="relative flex items-center justify-center min-h-screen p-4 pt-20">
+        <div className="min-h-screen bg-background">
+            <main className="relative flex items-center justify-center min-h-screen p-4 pt-12">
                 <div className="w-full max-w-2xl">
-                    {/* Hero Section */}
-                    <div className="text-center mb-12">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-primary rounded-full text-sm font-medium mb-6">
-                            <Sparkles className="h-4 w-4" />
-                            Get Started in Minutes
-                        </div>
+                    <div className="flex flex-row items-between justify-center mb-6">
+                        <Image src="/outreachAI.png" alt="Outreach AI Logo" width={90} height={90}/>
+                        <h4 className="text-2xl items-center my-auto ml-2">
+                            OutreachAI
+                        </h4>
                     </div>
 
                     {/* Progress Steps */}
                     <div className="flex items-center justify-center mb-12">
                         <div className="flex items-center">
                             {/* Step 1 */}
-                            <div className={`flex flex-col items-center ${currentStep >= 1 ? 'text-primary' : 'text-slate-400'}`}>
+                            <div className={`flex flex-col items-center ${currentStep >= 1 ? 'text-secondary' : 'text-tertiary'}`}>
                                 <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 ${
                                     isConnected 
-                                        ? 'bg-primary border-primary text-white' 
+                                        ? 'bg-primary border-primary text-secondary' 
                                         : currentStep >= 1 
-                                            ? 'border-primary bg-blue-50' 
-                                            : 'border-slate-300'
+                                            ? 'border-primary bg-tertiary' 
+                                            : 'border-tertiary'
                                 }`}>
                                     {isConnected ? <CheckCircle className="h-6 w-6" /> : <WalletIcon className="h-6 w-6" />}
                                 </div>
@@ -112,17 +109,17 @@ export default function GetStartedPage() {
                             
                             {/* Connector */}
                             <div className={`h-0.5 w-16 mx-4 transition-all duration-300 ${
-                                currentStep >= 2 ? 'bg-primary' : 'bg-slate-300'
+                                currentStep >= 2 ? 'bg-primary' : 'bg-tertiary'
                             }`} />
                             
                             {/* Step 2 */}
-                            <div className={`flex flex-col items-center ${currentStep >= 2 ? 'text-primary' : 'text-slate-400'}`}>
+                            <div className={`flex flex-col items-center ${currentStep >= 2 ? 'text-secondary' : 'text-slate-400'}`}>
                                 <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300 ${
                                     isSubmitted
-                                        ? 'bg-green-600 border-green-600 text-white'
+                                        ? 'bg-primary border-primary text-secondary'
                                         : currentStep >= 2 
-                                            ? 'border-primary bg-blue-50' 
-                                            : 'border-slate-300'
+                                            ? 'border-primary bg-tertiary' 
+                                            : 'border-tertiary'
                                 }`}>
                                     {isSubmitted ? <CheckCircle className="h-6 w-6" /> : <Building2 className="h-6 w-6" />}
                                 </div>
@@ -134,34 +131,17 @@ export default function GetStartedPage() {
                     {isSubmitted ? (
                         <Card className="border-0 shadow-2xl bg-white/80 backdrop-blur-xl">
                             <CardHeader className="text-center pb-6">
-                                <div className="mx-auto w-20 h-20 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mb-6 shadow-lg">
-                                    <CheckCircle className="h-10 w-10 text-white" />
-                                </div>
-                                <CardTitle className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                                <CardTitle className="text-3xl font-bold text-secondary">
                                     Welcome aboard! 
                                 </CardTitle>
-                                <CardDescription className="text-lg mt-2">
+                                <CardDescription className="text-md mt-2">
                                     Your account has been set up successfully. You&apos;re ready to explore the platform.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="pt-0">
-                                <div className="grid grid-cols-3 gap-4 mb-8">
-                                    <div className="text-center p-4 bg-blue-50 rounded-lg">
-                                        <Shield className="h-6 w-6 text-primary mx-auto mb-2" />
-                                        <p className="text-sm font-medium text-slate-700">Secure</p>
-                                    </div>
-                                    <div className="text-center p-4 bg-green-50rounded-lg">
-                                        <Zap className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                                        <p className="text-sm font-medium text-slate-700">Fast</p>
-                                    </div>
-                                    <div className="text-center p-4 bg-purple-50 rounded-lg">
-                                        <Sparkles className="h-6 w-6 text-purple-600 mx-auto mb-2" />
-                                        <p className="text-sm font-medium text-slate-700">Modern</p>
-                                    </div>
-                                </div>
                                 <Button 
-                                    className="w-full h-12 bg-gradient-to-r from-primary to-tertiary hover:from-primary hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200" 
-                                    onClick={() => window.location.href = '/protected'}
+                                    className="w-full h-12 bg-primary hover:bg-primary-foreground text-secondary font-semibold shadow-lg hover:shadow-xl transition-all duration-200" 
+                                    onClick={() => router.push('/dashboard')}
                                 >
                                     Go to Dashboard
                                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -172,9 +152,9 @@ export default function GetStartedPage() {
                         <>
                             {/* Step 1: Connect Wallet */}
                             {currentStep === 1 && (
-                                <Card className="border-0 shadow-2xl bg-white/80 backdrop-blur-xl">
+                                <Card className="bg-white">
                                     <CardHeader className="text-center pb-6">
-                                        <CardTitle className="text-2xl font-bold text-slate-900">
+                                        <CardTitle className="text-2xl font-bold text-secondary">
                                             Connect Your Wallet
                                         </CardTitle>
                                         <CardDescription className="text-base">
@@ -182,19 +162,11 @@ export default function GetStartedPage() {
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-8">
-                                        {!isConnected ? (
-                                            <div className="text-center">
-                                                <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-tertiary rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                                                    <WalletIcon className="h-12 w-12 text-white" />
-                                                </div>
-                                                <p className="text-slate-600 mb-8 text-lg">
-                                                    Please connect your wallet to continue your journey
-                                                </p>
-                                                <div className="flex justify-center">
+                                        <div className="flex justify-center">
                                                     <Wallet>
-                                                        <ConnectWallet>
+                                                        <ConnectWallet className="bg-primary hover:bg-primary-foreground text-secondary font-semibold rounded-sm transition-all duration-200">
                                                             <Avatar/>
-                                                            <Name />
+                                                            <Name className="text-secondary" />
                                                         </ConnectWallet>
                                                         <WalletDropdown>
                                                             <Identity hasCopyAddressOnClick>
@@ -215,24 +187,14 @@ export default function GetStartedPage() {
                                                         </WalletDropdown>
                                                     </Wallet>
                                                 </div>
-                                            </div>
-                                        ) : (
+                                        {isConnected && (
                                             <div className="text-center">
-                                                <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                                                    <CheckCircle className="h-12 w-12 text-white" />
-                                                </div>
-                                                <Badge variant="secondary" className="bg-green-100 text-green-800px-4 py-2 text-sm font-semibold mb-4">
+                                                <Badge variant="secondary" className="bg-primary/50 text-teritiary px-4 py-2 text-xs rounded-full mb-4">
                                                     Wallet Connected Successfully
                                                 </Badge>
-                                                <div className="bg-slate-50 rounded-xl p-4 mb-8">
-                                                    <p className="text-sm text-slate-600 mb-1">Connected Address:</p>
-                                                    <p className="font-mono text-slate-900 font-medium">
-                                                        {address?.slice(0, 8)}...{address?.slice(-8)}
-                                                    </p>
-                                                </div>
                                                 <Button 
                                                     onClick={handleNext} 
-                                                    className="w-full h-12 bg-gradient-to-r from-primary to-tertiary hover:from-primary hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                                                    className="w-full h-12 bg-primary hover:bg-primary-foreground text-secondary font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                                                 >
                                                     Continue to Company Details
                                                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -245,14 +207,11 @@ export default function GetStartedPage() {
 
                             {/* Step 2: Company Details Form */}
                             {currentStep === 2 && (
-                                <Card className="border-0 shadow-2xl bg-white/80backdrop-blur-xl">
-                                    <CardHeader className="pb-6">
+                                <Card className="bg-white">
+                                    <CardHeader>
                                         <CardTitle className="text-2xl font-bold text-slate-900">
                                             Company Details
                                         </CardTitle>
-                                        <CardDescription className="text-base">
-                                            Tell us about your company to personalize your experience
-                                        </CardDescription>
                                     </CardHeader>
                                     <CardContent>
                                         <Form {...form}>
@@ -268,7 +227,7 @@ export default function GetStartedPage() {
                                                             <FormControl>
                                                                 <Input 
                                                                     placeholder="Enter your company name" 
-                                                                    className="h-12 border-slate-200 focus:border-blue-500 bg-white"
+                                                                    className="h-12 border-secondary/10 focus:border-primary bg-white"
                                                                     {...field} 
                                                                 />
                                                             </FormControl>
@@ -287,19 +246,17 @@ export default function GetStartedPage() {
                                                             </FormLabel>
                                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                                 <FormControl>
-                                                                    <SelectTrigger className="h-12 border-slate-200 focus:border-blue-500 bg-white">
+                                                                    <SelectTrigger className="h-12 border-secondary/10 focus:border-primary bg-white">
                                                                         <SelectValue placeholder="Select your primary purpose" />
                                                                     </SelectTrigger>
                                                                 </FormControl>
                                                                 <SelectContent>
-                                                                    <SelectItem value="defi">💰 DeFi & Finance</SelectItem>
-                                                                    <SelectItem value="nft">🎨 NFTs & Digital Assets</SelectItem>
-                                                                    <SelectItem value="gaming">🎮 Gaming & Metaverse</SelectItem>
-                                                                    <SelectItem value="marketplace">🛒 Marketplace</SelectItem>
-                                                                    <SelectItem value="infrastructure">🏗️ Infrastructure</SelectItem>
-                                                                    <SelectItem value="education">📚 Education & Learning</SelectItem>
-                                                                    <SelectItem value="social">👥 Social & Community</SelectItem>
-                                                                    <SelectItem value="other">🔧 Other</SelectItem>
+                                                                    <SelectItem value="content">Content Creation</SelectItem>
+                                                                    <SelectItem value="agency">Agency</SelectItem>
+                                                                    <SelectItem value="marketting">Marketing</SelectItem>
+                                                                    <SelectItem value="education">Education</SelectItem>
+                                                                    <SelectItem value="social">Social & Community</SelectItem>
+                                                                    <SelectItem value="other">Other</SelectItem>
                                                                 </SelectContent>
                                                             </Select>
                                                             <FormMessage />
@@ -319,27 +276,7 @@ export default function GetStartedPage() {
                                                                 <Input 
                                                                     type="email" 
                                                                     placeholder="Enter your email address" 
-                                                                    className="h-12 border-slate-200 focus:border-blue-500 bg-white"
-                                                                    {...field} 
-                                                                />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-
-                                                <FormField
-                                                    control={form.control}
-                                                    name="website"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel className="text-slate-700 font-semibold">
-                                                                Website (Optional)
-                                                            </FormLabel>
-                                                            <FormControl>
-                                                                <Input 
-                                                                    placeholder="https://yourcompany.com" 
-                                                                    className="h-12 border-slate-200 focus:border-blue-500 bg-white"
+                                                                    className="h-12 border-secondary/10 focus:border-primary bg-white"
                                                                     {...field} 
                                                                 />
                                                             </FormControl>
@@ -355,13 +292,13 @@ export default function GetStartedPage() {
                                                         type="button"
                                                         variant="outline"
                                                         onClick={() => setCurrentStep(1)}
-                                                        className="flex-1 h-12 border-slate-200 hover:bg-slate-50"
+                                                        className="flex-1 h-12 border-secondary/10 hover:bg-slate-50"
                                                     >
                                                         Back
                                                     </Button>
                                                     <Button 
                                                         type="submit" 
-                                                        className="flex-1 h-12 bg-gradient-to-r from-primary to-tertiary hover:from-primary hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                                                        className="flex-1 h-12 bg-primary hover:bg-primary-foreground text-secondary font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                                                     >
                                                         Complete Setup
                                                         <Sparkles className="ml-2 h-4 w-4" />

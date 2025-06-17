@@ -3,20 +3,22 @@
 @import "@coinbase/onchainkit/styles.css";
 @tailwind utilities;
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
+  --background: #f6f6ef;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #fe4a23;
-  --primary-hover: #fd3508;
-  --primary-foreground:  #fff;
-  --secondary: #a7a7a2;
+  --primary: #d3f26a;
+  --primary-foreground: #c8ef44;
+  --secondary: #2f282b;
   --secondary-foreground: #fff;
-  --tertiary: #7b54e0;
+  --tertiary: #caccc6;
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
   --accent: oklch(0.97 0 0);
@@ -41,7 +43,6 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 }
-
 
 @theme inline {
   --color-background: var(--background);
@@ -81,4 +82,13 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
