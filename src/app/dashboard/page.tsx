@@ -45,9 +45,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <strong>Purpose:</strong> 
-                  <Badge variant="secondary" className="ml-2">
                     {user.purpose}
-                  </Badge>
                 </div>
                 <div>
                   <strong>Wallet:</strong> 

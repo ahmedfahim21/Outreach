@@ -20,7 +20,7 @@ import {
     Identity,
     EthBalance,
 } from "@coinbase/onchainkit/identity";
-import { ChevronLeft, CreditCardIcon, FlagIcon, PersonStanding, PlusIcon, SettingsIcon, UserIcon } from "lucide-react"
+import { ChevronLeft, Copyright, CreditCardIcon, FlagIcon, PersonStanding, PlusIcon, SettingsIcon, UserIcon } from "lucide-react"
 import Image from "next/image"
 import { Button } from "./ui/button"
 import { useSelectedLayoutSegment } from "next/navigation";
@@ -111,30 +111,8 @@ export function AppSidebar() {
                 </SidebarGroup>
             </SidebarContent>
 
-            <SidebarFooter className="bg-background">
-                <hr className="border-secondary/20 my-1" />
-                <Wallet className="w-full">
-                    <ConnectWallet className="bg-primary hover:bg-primary-foreground text-secondary font-semibold rounded-sm transition-all duration-200 w-full">
-                        <Avatar />
-                        <Name className="text-secondary" />
-                    </ConnectWallet>
-                    <WalletDropdown>
-                        <Identity hasCopyAddressOnClick>
-                            <Avatar />
-                            <Name />
-                            <EthBalance />
-                        </Identity>
-                        <WalletDropdownLink
-                            icon="wallet"
-                            href="https://keys.coinbase.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            Wallet
-                        </WalletDropdownLink>
-                        <WalletDropdownDisconnect/>
-                    </WalletDropdown>
-                </Wallet>
+            <SidebarFooter className="bg-background border-t text-secondary text-xs text-center py-2">
+                    <span>© 2025 OutreachAI</span>
             </SidebarFooter>
         </Sidebar>
     )
