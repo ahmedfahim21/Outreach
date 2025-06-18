@@ -31,7 +31,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background">
       <div className="container flex h-20 items-center">
-        <div className="flex items-center gap-2 ml-4">
+        <div className="flex items-center gap-2 mx-4">
           <SidebarTrigger className="-ml-1" />
           <Link href="/dashboard/profile" className="flex items-center gap-2">
             <StarIcon className="inline-block mr-1 bg-primary text-secondary rounded-sm p-1" />

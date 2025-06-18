@@ -36,8 +36,8 @@ export function AppSidebar() {
                     )}
                 </SidebarGroup>
                 <SidebarGroup>
-                    <Link href="/dashboard/campaign/new" className="w-full">
-                        <Button variant="secondary" className="h-12">
+                    <Link href="/dashboard/campaign/new" className="w-full px-3">
+                        <Button variant="secondary" className="h-12 w-full">
                             <PlusIcon className="mr-1" />
                             Create New Campaign
                         </Button>

@@ -17,6 +17,14 @@ export default function App() {
             Get Started
             </Button>
           </Link>
+          <Link
+            className="text-blue-500 flex justify-center mb-6"
+            href="/protected"
+          >
+            <Button className="w-full">
+            Protected
+            </Button>
+          </Link>
         </div>
       </main>
     </div>

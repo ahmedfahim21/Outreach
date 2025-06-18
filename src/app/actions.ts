@@ -1,4 +1,4 @@
-'use server'
+"use server";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -6,17 +6,17 @@ import { useFacilitator as getFaciliator } from "x402/verify";
 import { PaymentRequirements } from "x402/types";
 import { exact } from "x402/schemes";
 
-export async function verifyPayment(payload: string): Promise<string> {
+export async function verifyPayment(payload: string, paymentAmount: string): Promise<string> {
   const paymentRequirements: PaymentRequirements = {
     scheme: "exact",
     network: "base-sepolia",
-    maxAmountRequired: "1",
-    resource: "/protected",
+    maxAmountRequired: paymentAmount,
+    resource: "https://example.com",
     description: "Payment for a service",
     mimeType: "text/html",
     payTo: process.env.RESOURCE_WALLET_ADDRESS as string,
     maxTimeoutSeconds: 60,
-    asset: "",
+    asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
     outputSchema: undefined,
     extra: {
       name: "USDC",
