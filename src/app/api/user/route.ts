@@ -2,18 +2,37 @@ import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
-
-    const { searchParams } = request.nextUrl;
-    const data = await prisma.user.findFirst({
-        where: {
-            walletAddress:  searchParams.get("walletAddress") || undefined,
-        },
-    });
-
-    return new NextResponse(JSON.stringify(data), {
-        status: 200,
-        headers: {
-            "Content-Type": "application/json",
-        },
-    });
+    try {
+        const { searchParams } = request.nextUrl;
+        const walletAddress = searchParams.get("walletAddress");
+        
+        if (!walletAddress) {
+            return new NextResponse(JSON.stringify({ error: "Wallet address is required" }), {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+        
+        const data = await prisma.user.findFirst({
+            where: { walletAddress },
+        });
+        
+        if (!data) {
+            return new NextResponse(JSON.stringify({ message: "User not found" }), {
+                status: 404,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+        
+        return new NextResponse(JSON.stringify(data), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+        });
+    } catch (error) {
+        console.error("Error fetching user:", error);
+        return new NextResponse(JSON.stringify({ error: "Internal server error" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+        });
+    }
 }

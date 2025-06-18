@@ -19,31 +19,27 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen p-6">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Profile</h1>
         
         <Card>
           <CardHeader>
-            <CardTitle>Company Information</CardTitle>
-            <CardDescription>Your registered company details</CardDescription>
+            <CardTitle>User Information</CardTitle>
+            <CardDescription>Your registered details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Company Name</label>
-                <p className="text-lg">{user.companyName}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Purpose</label>
-                <p className="text-lg">{user.purpose}</p>
+                <label className="text-sm font-medium text-muted-foreground">Name</label>
+                <p className="text-lg">{user.name}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Contact Email</label>
-                <p className="text-lg">{user.contactEmail}</p>
+                <p className="text-lg">{user.email}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
-                <p className="text-sm font-mono bg-muted p-2 rounded">
+                <p className="text-sm font-mono bg-muted p-2 rounded w-fit">
                   {user.walletAddress}
                 </p>
               </div>

@@ -29,19 +29,19 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b">
+    <header className="sticky top-0 z-40 w-full border-b bg-background">
       <div className="container flex h-20 items-center">
         <div className="flex items-center gap-2 ml-4">
           <SidebarTrigger className="-ml-1" />
-          <div className="flex items-center gap-2">
-            <StarIcon className="inline-block mr-1 bg-yellow-500 text-background rounded-sm p-1" />
+          <Link href="/dashboard/profile" className="flex items-center gap-2">
+            <StarIcon className="inline-block mr-1 bg-primary text-secondary rounded-sm p-1" />
             <h1 className="inline font-semibold text-2xl text-secondary">
-              {user.companyName}
+              {user.name}
             </h1>
-          </div>
+          </Link>
         </div>
         <nav className="flex items-center space-x-4 justify-end ml-auto mr-4">
-          <Link href="/new-campaign" className="hidden md:inline">
+          <Link href="/dashboard/campaign/new" className="hidden md:inline">
             <Button variant="outline" className="h-11">
               <PlusIcon className="h-4 w-4" />
               Create New Campaign

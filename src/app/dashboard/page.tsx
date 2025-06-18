@@ -3,7 +3,6 @@
 import { useAuth } from "@/contexts/auth-context";
 import { useRequireAuth } from "@/hooks/use-auth-redirect";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export default function DashboardPage() {
@@ -32,20 +31,16 @@ export default function DashboardPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle>Company Profile</CardTitle>
-              <CardDescription>Your company information</CardDescription>
+              <CardTitle>Profile</CardTitle>
+              <CardDescription>Your information</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <div>
-                  <strong>Company:</strong> {user.companyName}
+                  <strong>Name:</strong> {user.name}
                 </div>
                 <div>
-                  <strong>Email:</strong> {user.contactEmail}
-                </div>
-                <div>
-                  <strong>Purpose:</strong> 
-                    {user.purpose}
+                  <strong>Email:</strong> {user.email}
                 </div>
                 <div>
                   <strong>Wallet:</strong> 

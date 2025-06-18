@@ -7,20 +7,7 @@ import {
     SidebarGroup,
     SidebarHeader,
 } from "@/components/ui/sidebar"
-import {
-    ConnectWallet,
-    Wallet,
-    WalletDropdown,
-    WalletDropdownLink,
-    WalletDropdownDisconnect,
-} from "@coinbase/onchainkit/wallet";
-import {
-    Avatar,
-    Name,
-    Identity,
-    EthBalance,
-} from "@coinbase/onchainkit/identity";
-import { ChevronLeft, Copyright, CreditCardIcon, FlagIcon, PersonStanding, PlusIcon, SettingsIcon, UserIcon } from "lucide-react"
+import { ChevronLeft, CreditCardIcon, FlagIcon, PersonStanding, PlusIcon, SettingsIcon, UserIcon } from "lucide-react"
 import Image from "next/image"
 import { Button } from "./ui/button"
 import { useSelectedLayoutSegment } from "next/navigation";
@@ -49,15 +36,17 @@ export function AppSidebar() {
                     )}
                 </SidebarGroup>
                 <SidebarGroup>
-                    <Button variant="secondary" className="h-12">
-                        <PlusIcon className="mr-1" />
-                        Create New Campaign
-                    </Button>
+                    <Link href="/dashboard/campaign/new" className="w-full">
+                        <Button variant="secondary" className="h-12">
+                            <PlusIcon className="mr-1" />
+                            Create New Campaign
+                        </Button>
+                    </Link>
                 </SidebarGroup>
                 <SidebarGroup>
-                    <Link href="/dashboard/campaigns" className="w-full">
+                    <Link href="/dashboard/campaign" className="w-full">
                         <Button
-                            variant={path === "campaigns" ? "default" : "ghost"}
+                            variant={path === "campaign" ? "default" : "ghost"}
                             className="w-full justify-start"
                         >
                             <FlagIcon className="mr-2 w-4 h-4" />

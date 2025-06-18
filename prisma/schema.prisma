@@ -10,9 +10,8 @@ datasource db {
 
 model User {
   id            Int      @id @default(autoincrement())
-  companyName   String
-  purpose       String
-  contactEmail  String
+  name          String
+  email         String
   walletAddress String   @unique
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

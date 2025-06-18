@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, Wallet as WalletIcon, Building2, ArrowRight, Sparkles } from "lucide-react";
@@ -33,13 +32,10 @@ import { useAuth } from "@/contexts/auth-context";
 
 // Form schema
 const formSchema = z.object({
-    companyName: z.string().min(2, {
-        message: "Company name must be at least 2 characters.",
+    name: z.string().min(2, {
+        message: "Name must be at least 2 characters.",
     }),
-    purpose: z.string({
-        required_error: "Please select a purpose.",
-    }),
-    contactEmail: z.string().email({
+    email: z.string().email({
         message: "Please enter a valid email address.",
     })
 });
@@ -54,9 +50,8 @@ export default function GetStartedPage() {
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            companyName: "",
-            purpose: "",
-            contactEmail: ""
+            name: "",
+            email: ""
         },
     });
 
@@ -219,7 +214,7 @@ export default function GetStartedPage() {
                                                     onClick={handleNext} 
                                                     className="w-full h-12 bg-primary hover:bg-primary-foreground text-secondary font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                                                 >
-                                                    Continue to Company Details
+                                                    Continue to Fill Details
                                                     <ArrowRight className="ml-2 h-4 w-4" />
                                                 </Button>
                                             </div>
@@ -228,12 +223,12 @@ export default function GetStartedPage() {
                                 </Card>
                             )}
 
-                            {/* Step 2: Company Details Form */}
+                            {/* Step 2: Details Form */}
                             {currentStep === 2 && (
                                 <Card className="bg-white">
                                     <CardHeader>
                                         <CardTitle className="text-2xl font-bold text-slate-900">
-                                            Company Details
+                                            Details
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>
@@ -241,15 +236,15 @@ export default function GetStartedPage() {
                                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                                                 <FormField
                                                     control={form.control}
-                                                    name="companyName"
+                                                    name="name"
                                                     render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel className="text-slate-700 font-semibold">
-                                                                Company Name *
+                                                                Name *
                                                             </FormLabel>
                                                             <FormControl>
                                                                 <Input 
-                                                                    placeholder="Enter your company name" 
+                                                                    placeholder="Enter your name" 
                                                                     className="h-12 border-secondary/10 focus:border-primary bg-white"
                                                                     {...field} 
                                                                 />
@@ -261,35 +256,7 @@ export default function GetStartedPage() {
 
                                                 <FormField
                                                     control={form.control}
-                                                    name="purpose"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel className="text-slate-700 font-semibold">
-                                                                Primary Purpose *
-                                                            </FormLabel>
-                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                                <FormControl>
-                                                                    <SelectTrigger className="h-12 border-secondary/10 focus:border-primary bg-white">
-                                                                        <SelectValue placeholder="Select your primary purpose" />
-                                                                    </SelectTrigger>
-                                                                </FormControl>
-                                                                <SelectContent>
-                                                                    <SelectItem value="content">Content Creation</SelectItem>
-                                                                    <SelectItem value="agency">Agency</SelectItem>
-                                                                    <SelectItem value="marketting">Marketing</SelectItem>
-                                                                    <SelectItem value="education">Education</SelectItem>
-                                                                    <SelectItem value="social">Social & Community</SelectItem>
-                                                                    <SelectItem value="other">Other</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-
-                                                <FormField
-                                                    control={form.control}
-                                                    name="contactEmail"
+                                                    name="email"
                                                     render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel className="text-slate-700 font-semibold">

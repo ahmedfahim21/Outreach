@@ -6,9 +6,8 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const data = await prisma.user.create({
             data: {
-                companyName: body.companyName,
-                purpose: body.purpose,
-                contactEmail: body.contactEmail,
+                name: body.name,
+                email: body.email,
                 walletAddress: body.walletAddress || "",
             },
         });
