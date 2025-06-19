@@ -77,13 +77,13 @@ export function AppSidebar() {
                     </Link>
                 </SidebarGroup>
                 <SidebarGroup>
-                    <Link href="/dashboard/billing" className="w-full">
+                    <Link href="/dashboard/portfolio" className="w-full">
                         <Button
-                            variant={path === "billing" ? "default" : "ghost"}
+                            variant={path === "portfolio" ? "default" : "ghost"}
                             className="w-full justify-start"
                         >
                             <CreditCardIcon className="mr-2 w-4 h-4" />
-                            Billing
+                            Portfolio
                         </Button>
                     </Link>
                 </SidebarGroup>

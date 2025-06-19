@@ -13,34 +13,38 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { ASSET_ADDRESSES } from "@/lib/constants";
 
 function PaymentForm({
   paymentRequirements,
   onPaymentAmountChange,
+  onTokenChange
 }: {
   paymentRequirements: PaymentRequirements;
   onPaymentAmountChange: (amount: string) => void;
+  onTokenChange: (token: "USDC" | "EURC") => void;
 }) {
   const { address, isConnected } = useAccount();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(paymentRequirements.maxAmountRequired);
+  const [token, setToken] = useState<"USDC" | "EURC">(paymentRequirements.extra?.name as "USDC" | "EURC" || "USDC");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const handleAmountChange = (value: string) => {
     const numValue = parseFloat(value);
-    
+
     if (numValue <= 0) {
       setError('Amount must be greater than 0');
     } else {
       setError(null);
     }
-    
+
     setPaymentAmount(value);
     onPaymentAmountChange(value);
   };
 
-  const { isError, isSuccess, signTypedDataAsync } = useSignTypedData();
+  const { signTypedDataAsync } = useSignTypedData();
 
   async function handlePayment() {
     if (error || !paymentAmount || parseFloat(paymentAmount) <= 0) {
@@ -51,9 +55,8 @@ function PaymentForm({
     setIsProcessing(true);
     setError(null);
     setSuccess(false);
-    
+
     try {
-      // Create payment requirements with the selected amount
       const actualPaymentRequirements = {
         ...paymentRequirements,
         maxAmountRequired: paymentAmount
@@ -98,11 +101,9 @@ function PaymentForm({
       };
 
       const payment: string = exact.evm.encodePayment(paymentPayload);
-
-
-      const verifyPaymentWithPayment = verifyPayment.bind(null, payment, paymentAmount);
+      const verifyPaymentWithPayment = verifyPayment.bind(null, payment, paymentAmount, token);
       const result = await verifyPaymentWithPayment();
-      
+
       if (result && result.startsWith('Error:')) {
         setError(result);
       } else {
@@ -120,16 +121,18 @@ function PaymentForm({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Connect Your Wallet</CardTitle>
           <CardDescription>
-            Connect your wallet to make the payment
+            {!isConnected ?
+              "Please connect your wallet to continue" :
+              "Your wallet is connected. Proceed with the payment."
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Wallet />
           {!isConnected && (
             <p className="text-sm text-muted-foreground mt-2">
-              Please connect your wallet to continue
+
             </p>
           )}
         </CardContent>
@@ -145,11 +148,38 @@ function PaymentForm({
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Payment Amount Input */}
+          <div className="space-y-2">
+            <label htmlFor="token" className="text-sm font-medium">
+              Select Token
+            </label>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={token === "USDC" ? "secondary" : "outline"}
+                onClick={() => {
+                  setToken("USDC");
+                  onTokenChange("USDC");
+                }}
+                className="flex-1"
+              >
+                USDC
+              </Button>
+              <Button
+                variant={token === "EURC" ? "secondary" : "outline"}
+                onClick={() => {
+                  setToken("EURC");
+                  onTokenChange("EURC");
+                }}
+                className="flex-1"
+              >
+                EURC
+              </Button>
+            </div>
+          </div>
           <div className="space-y-4">
             <label htmlFor="amount" className="text-sm font-medium">
               Payment Amount
             </label>
-            
+
             <div className="relative">
               <Input
                 id="amount"
@@ -166,14 +196,10 @@ function PaymentForm({
                 {paymentRequirements.extra?.name || 'USDC'}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Maximum: {paymentRequirements.maxAmountRequired} {paymentRequirements.extra?.name || 'tokens'}
-            </p>
           </div>
 
           <Separator />
 
-          {/* Payment Info */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Network:</span>
@@ -185,22 +211,16 @@ function PaymentForm({
                 {paymentRequirements.payTo?.slice(0, 6)}...{paymentRequirements.payTo?.slice(-4)}
               </code>
             </div>
-            <div className="flex justify-between text-sm">
-              <span>Timeout:</span>
-              <span>{paymentRequirements.maxTimeoutSeconds}s</span>
-            </div>
           </div>
 
           <Separator />
 
-          {/* Error Display */}
           {error && (
             <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
               <p className="text-sm text-destructive">{error}</p>
             </div>
           )}
 
-          {/* Success Display */}
           {success && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-md">
               <p className="text-sm text-green-700">Payment completed successfully!</p>
@@ -225,14 +245,6 @@ function PaymentForm({
               `Pay ${paymentAmount} ${paymentRequirements.extra?.name || 'USDC'}`
             )}
           </Button>
-
-          {/* Status Messages */}
-          {isSuccess && !success && (
-            <p className="text-sm text-green-600 text-center">Transaction signed successfully</p>
-          )}
-          {isError && (
-            <p className="text-sm text-destructive text-center">Signature failed</p>
-          )}
         </CardContent>
       </Card>
     </div>
@@ -241,20 +253,29 @@ function PaymentForm({
 
 export default function Paywall() {
   const [maxAmountRequired, setMaxAmountRequired] = useState("100000");
-  
+  const [token, setToken] = useState<"USDC" | "EURC">("USDC");
+
+  const assetAddress = process.env.NEXT_PUBLIC_NODE_ENV === "production"
+    ? token === "USDC"
+      ? ASSET_ADDRESSES.BASE.USDC
+      : ASSET_ADDRESSES.BASE.EURC
+    : token === "USDC"
+      ? ASSET_ADDRESSES.BASE_SEPOLIA.USDC
+      : ASSET_ADDRESSES.BASE_SEPOLIA.EURC;
+
   const paymentRequirements: PaymentRequirements = {
     scheme: "exact",
-    network: "base-sepolia",
+    network: process.env.NEXT_PUBLIC_NODE_ENV === "production" ? "base" : "base-sepolia",
     maxAmountRequired: maxAmountRequired,
     resource: "/protected",
     description: "Access to Premium Content",
     mimeType: "text/html",
     payTo: process.env.NEXT_PUBLIC_RESOURCE_WALLET_ADDRESS as string,
-    maxTimeoutSeconds: 60, 
-    asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    maxTimeoutSeconds: 60,
+    asset: assetAddress,
     outputSchema: undefined,
     extra: {
-      name: "USDC",
+      name: token,
       version: "2",
     },
   };
@@ -286,26 +307,20 @@ export default function Paywall() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Secure Payment Gateway</h1>
-          <p className="text-muted-foreground">
-            Complete your payment to access premium content
-          </p>
         </div>
 
         {/* Payment Form */}
         <div className="max-w-2xl mx-auto px-4 sm:px-0">
-          <PaymentForm 
-            paymentRequirements={paymentRequirements} 
+          <PaymentForm
+            paymentRequirements={paymentRequirements}
             onPaymentAmountChange={setMaxAmountRequired}
+            onTokenChange={setToken}
           />
         </div>
 
-        {/* Footer Info */}
-        <div className="mt-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            🔒 Your payment is secured by blockchain technology
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Powered by OnchainKit and x402 Payment Protocol
+        <div className="mt-6 text-center">
+          <p className="text-xs text-muted-foreground">
+            🔒 Powered by OnchainKit and x402 Payment Protocol
           </p>
         </div>
       </div>

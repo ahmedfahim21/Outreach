@@ -10,7 +10,6 @@ import {
   ConnectWallet,
   Wallet,
   WalletDropdown,
-  WalletDropdownLink,
   WalletDropdownDisconnect,
 } from "@coinbase/onchainkit/wallet";
 import {
@@ -47,7 +46,7 @@ export function Header() {
               Create New Campaign
             </Button>
           </Link>
-          <Wallet className="flex items-center space-x-2">
+          <Wallet>
             <ConnectWallet className="h-11 flex bg-primary hover:bg-primary-foreground text-secondary font-semibold rounded-sm transition-all duration-200">
               <Avatar className="h-6 w-6 mr-2" />
               <Name className="text-secondary font-medium text-md" />
@@ -58,14 +57,6 @@ export function Header() {
                 <Name />
                 <EthBalance />
               </Identity>
-              <WalletDropdownLink
-                icon="wallet"
-                href="https://keys.coinbase.com"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Wallet
-              </WalletDropdownLink>
               <WalletDropdownDisconnect />
             </WalletDropdown>
           </Wallet>

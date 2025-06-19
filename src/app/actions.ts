@@ -5,21 +5,31 @@ import { redirect } from "next/navigation";
 import { useFacilitator as getFaciliator } from "x402/verify";
 import { PaymentRequirements } from "x402/types";
 import { exact } from "x402/schemes";
+import { ASSET_ADDRESSES } from "@/lib/constants";
 
-export async function verifyPayment(payload: string, paymentAmount: string): Promise<string> {
+export async function verifyPayment(payload: string, paymentAmount: string, token: "USDC"|"EURC"): Promise<string> {
+
+  const assetAddress = process.env.NEXT_PUBLIC_NODE_ENV === "production"
+    ? token === "USDC"
+      ? ASSET_ADDRESSES.BASE.USDC
+      : ASSET_ADDRESSES.BASE.EURC
+    : token === "USDC"
+      ? ASSET_ADDRESSES.BASE_SEPOLIA.USDC
+      : ASSET_ADDRESSES.BASE_SEPOLIA.EURC;
+
   const paymentRequirements: PaymentRequirements = {
     scheme: "exact",
-    network: "base-sepolia",
+    network: process.env.NEXT_PUBLIC_NODE_ENV === "production" ? "base" : "base-sepolia",
     maxAmountRequired: paymentAmount,
     resource: "https://example.com",
     description: "Payment for a service",
     mimeType: "text/html",
     payTo: process.env.RESOURCE_WALLET_ADDRESS as string,
     maxTimeoutSeconds: 60,
-    asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    asset: assetAddress,
     outputSchema: undefined,
     extra: {
-      name: "USDC",
+      name: token,
       version: "2",
     },
   };

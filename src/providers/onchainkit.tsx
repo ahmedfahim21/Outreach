@@ -7,10 +7,11 @@ import type { ReactNode } from 'react';
 export function OnChainProviders(props: { children: ReactNode }) {
   return (
     <OnchainKitProvider
-      apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
-          chain={process.env.NODE_ENV === 'production' ? base : baseSepolia}
+      apiKey={process.env.NEXT_PUBLIC_CDP_CLIENT_API_KEY}
+      projectId={process.env.NEXT_PUBLIC_CDP_PROJECT_ID}
+          chain={process.env.NEXT_PUBLIC_NODE_ENV === 'production' ? base : baseSepolia}
           config={{ appearance: { 
-            mode: 'auto',
+            mode: 'dark',
         }
       }}
     >
