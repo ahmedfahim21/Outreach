@@ -6,7 +6,7 @@ import { useAccount } from 'wagmi';
 interface User {
   id: number;
   name: string;
-  email: string;
+  contactEmail: string;
   walletAddress: string;
   createdAt: string;
   updatedAt: string;

@@ -387,7 +387,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Email</p>
-                <p className="font-medium">{user.email}</p>
+                <p className="font-medium">{user.contactEmail}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Wallet Address</p>

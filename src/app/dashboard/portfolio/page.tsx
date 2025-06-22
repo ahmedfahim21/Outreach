@@ -98,7 +98,7 @@ export default function PortfolioPage() {
 
     if (process.env.NEXT_PUBLIC_NODE_ENV != 'production') {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="flex items-center justify-center min-h-[80vh]">
                 <Card className="w-full max-w-md">
                     <CardHeader className="text-center">
                         <CardTitle>This page is only available in Base Mainnet</CardTitle>

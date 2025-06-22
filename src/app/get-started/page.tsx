@@ -35,7 +35,7 @@ const formSchema = z.object({
     name: z.string().min(2, {
         message: "Name must be at least 2 characters.",
     }),
-    email: z.string().email({
+    contactEmail: z.string().email({
         message: "Please enter a valid email address.",
     })
 });
@@ -51,7 +51,7 @@ export default function GetStartedPage() {
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: "",
-            email: ""
+            contactEmail: ""
         },
     });
 
@@ -256,7 +256,7 @@ export default function GetStartedPage() {
 
                                                 <FormField
                                                     control={form.control}
-                                                    name="email"
+                                                    name="contactEmail"
                                                     render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel className="text-slate-700 font-semibold">

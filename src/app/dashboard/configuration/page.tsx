@@ -1,30 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Search, Settings, CheckCircle, AlertCircle } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 
 interface ServiceConfig {
   id: string;
   name: string;
   description: string;
   icon: React.ReactNode;
-  connected: boolean;
-  enabled: boolean;
   features: string[];
 }
 
+interface GoogleConnectionStatus {
+  connected: boolean;
+  email?: string;
+  name?: string;
+  scope?: string;
+}
+
 export default function ConfigurationPage() {
-  const [services, setServices] = useState<ServiceConfig[]>([
+  const { user } = useAuth();
+  const [services] = useState<ServiceConfig[]>([
     {
       id: "gmail",
       name: "Gmail",
       description: "Connect your Gmail account to enable email outreach and management",
       icon: <Mail className="w-8 h-8 text-red-500" />,
-      connected: false,
-      enabled: false,
       features: ["Send emails", "Read emails", "Email templates", "Bulk sending"]
     },
     {
@@ -32,30 +37,77 @@ export default function ConfigurationPage() {
       name: "Google Search",
       description: "Integrate Google Search to find prospect information and research",
       icon: <Search className="w-8 h-8 text-blue-500" />,
-      connected: false,
-      enabled: false,
       features: ["Search prospects", "Research companies", "Find contact info", "Market insights"]
     }
   ]);
 
-  const [userConfig, setUserConfig] = useState({
-    googleConnected: false,
-    gmailEnabled: false,
-    searchEnabled: false
+  const [googleStatus, setGoogleStatus] = useState<GoogleConnectionStatus>({
+    connected: false
   });
+  const [isConnecting, setIsConnecting] = useState(false);
 
+  useEffect(() => {
+    if (user?.id) {
+      checkGoogleStatus();
+    }
+  }, [user?.id]);
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+    
+    if (success) {
+      setGoogleStatus(prev => ({ ...prev, connected: true }));
+      // Clear URL params
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (error) {
+      console.error('OAuth error:', error);
+      setIsConnecting(false);
+    }
+  }, []);
+
+  const checkGoogleStatus = async () => {
+    try {
+      const response = await fetch(`/api/auth/google/status?userId=${user?.id}`);
+      if (response.ok) {
+        const status = await response.json();
+        setGoogleStatus(status);
+      }
+    } catch (error) {
+      console.error('Failed to check Google status:', error);
+    }
+  };
+
+  const handleGoogleConnect = async () => {
+    if (!user?.id) return;
+    
+    setIsConnecting(true);
+    try {
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: user.id, 
+          feature: 'calendar'
+        })
+      });
+      
+      if (response.ok) {
+        const { authUrl } = await response.json();
+        window.location.href = authUrl;
+      } else {
+        throw new Error('Failed to get auth URL');
+      }
+    } catch (error) {
+      console.error('Failed to initiate Google auth:', error);
+      setIsConnecting(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+    <div className="min-h-screen py-8">
+      <div className="max-w-6xl mx-auto px-4">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Service Configuration</h1>
           <p className="text-gray-600">
@@ -64,23 +116,25 @@ export default function ConfigurationPage() {
         </div>
 
         {/* Google Connection Status */}
-        <Card className="mb-8 border-2 border-dashed border-gray-200">
+        <Card className="mb-8 border-2 border-dashed border-tertiary bg-background shadow-none">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="w-5 h-5" />
               Google Account Connection
             </CardTitle>
-            <CardDescription>
-              Connect your Google account to enable Gmail and Google Search integration
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {userConfig.googleConnected ? (
+                {googleStatus.connected ? (
                   <>
                     <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-green-700 font-medium">Connected to Google</span>
+                    <div>
+                      <span className="text-green-700 font-medium">Connected to Google</span>
+                      {googleStatus.email && (
+                        <p className="text-sm text-gray-600">{googleStatus.email}</p>
+                      )}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -89,9 +143,13 @@ export default function ConfigurationPage() {
                   </>
                 )}
               </div>
-              {!userConfig.googleConnected && (
-                <Button className="flex items-center gap-2">
-                  <span>Connect Google Account</span>
+              {!googleStatus.connected && (
+                <Button 
+                  onClick={handleGoogleConnect}
+                  disabled={isConnecting}
+                  className="flex items-center gap-2"
+                >
+                  <span>{isConnecting ? 'Connecting...' : 'Connect Google Account'}</span>
                 </Button>
               )}
             </div>
@@ -113,22 +171,6 @@ export default function ConfigurationPage() {
                       </CardDescription>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {service.connected ? (
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        Connected
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-                        Not Connected
-                      </Badge>
-                    )}
-                    {service.enabled && (
-                      <Badge variant="default" className="bg-blue-100 text-blue-800">
-                        Enabled
-                      </Badge>
-                    )}
-                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -142,34 +184,6 @@ export default function ConfigurationPage() {
                         </Badge>
                       ))}
                     </div>
-                  </div>
-                  
-                  <div className="pt-4 border-t">
-                    {!service.connected ? (
-                      <Button 
-                        className="w-full"
-                      >
-                        Connect Google Account First
-                      </Button>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex gap-2">
-                          <Button 
-                            variant={service.enabled ? "outline" : "default"}
-                            className="flex-1"
-                          >
-                            {service.enabled ? "Disable Service" : "Enable Service"}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="px-3"
-                          >
-                            Test
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </CardContent>

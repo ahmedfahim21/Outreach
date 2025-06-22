@@ -18,7 +18,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="p-6">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Profile</h1>
         
@@ -35,7 +35,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Contact Email</label>
-                <p className="text-lg">{user.email}</p>
+                <p className="text-lg">{user.contactEmail}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
