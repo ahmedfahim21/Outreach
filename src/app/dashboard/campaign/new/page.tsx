@@ -6,36 +6,30 @@ import * as z from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Rocket } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 
 const searchIntentTemplates = [
-  { id: "lead-gen", name: "Lead Generation", description: "Find potential customers and clients" },
   { id: "influencer", name: "Influencer Outreach", description: "Connect with industry influencers" },
   { id: "partnership", name: "Partnership Building", description: "Establish business partnerships" },
-  { id: "recruitment", name: "Talent Recruitment", description: "Find and hire top talent" },
-  { id: "content-promo", name: "Content Promotion", description: "Promote your content and campaigns" },
   { id: "custom", name: "Custom Template", description: "Create your own outreach strategy" },
 ];
 
-const budgetTools = [
-  { id: "email-finder", name: "Email Finder", price: 2, description: "Find verified email addresses" },
-  { id: "linkedin-scraper", name: "LinkedIn Scraper", price: 5, description: "Extract LinkedIn profiles" },
-  { id: "company-data", name: "Company Data", price: 3, description: "Get detailed company information" },
-  { id: "social-media", name: "Social Media Intel", price: 4, description: "Social media insights and data" },
-  { id: "ai-personalization", name: "AI Personalization", price: 6, description: "AI-powered message personalization" },
-  { id: "analytics", name: "Advanced Analytics", price: 8, description: "Detailed campaign analytics" },
-];
+const USDC_EURC = 0.87;
 
-const geographyOptions = [
-  "United States", "Canada", "United Kingdom", "Australia", "Germany", "France", "Japan", "Global"
+const budgetTools = [
+  { id: "email-finder", name: "Email Finder", description: "Find verified email addresses" , priceInUSDC: 0.2, priceInEURC: USDC_EURC * 0.2 },
+  { id: "linkedin-scraper", name: "LinkedIn Scraper", description: "Extract LinkedIn profiles and contacts", priceInUSDC: 0.5, priceInEURC: USDC_EURC * 0.5 },
+  { id: "email-sequence", name: "Email Sequence", description: "Automated email sequences", priceInUSDC: 0.3, priceInEURC: USDC_EURC * 0.3 },
+  { id: "webinar-hosting", name: "Meet Hosting", description: "Host Meeting with Client", priceInUSDC: 0.4, priceInEURC: USDC_EURC * 0.4 },
 ];
 
 const skillsOptions = [
-  "Software Development", "Marketing", "Sales", "Design", "Data Science", "Product Management", 
+  "Software Development", "Marketing", "Sales", "Design", "Data Science", "Product Management",
   "Customer Success", "HR", "Finance", "Operations", "Content Creation", "Social Media"
 ];
 
@@ -52,12 +46,6 @@ const campaignFormSchema = z.object({
   }),
   targetSkills: z.array(z.string()).min(1, {
     message: "Please select at least one skill.",
-  }),
-  geography: z.string().min(1, {
-    message: "Please select a geography.",
-  }),
-  audienceSize: z.string().min(1, {
-    message: "Please select an audience size.",
   }),
   selectedTools: z.array(z.string()).min(1, {
     message: "Please select at least one tool.",
@@ -78,6 +66,10 @@ const campaignFormSchema = z.object({
 );
 
 export default function NewCampaignPage() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const { user } = useAuth();
   const form = useForm<z.infer<typeof campaignFormSchema>>({
     resolver: zodResolver(campaignFormSchema),
     defaultValues: {
@@ -86,8 +78,6 @@ export default function NewCampaignPage() {
       campaignTitle: "",
       campaignDescription: "",
       targetSkills: [],
-      geography: "",
-      audienceSize: "",
       selectedTools: [],
       autoNegotiation: false,
       autoFollowups: false,
@@ -95,15 +85,15 @@ export default function NewCampaignPage() {
   });
 
   const watchedValues = form.watch();
-  
+
   const totalBudget = watchedValues.selectedTools?.reduce((total, toolId) => {
     const tool = budgetTools.find(t => t.id === toolId);
-    return total + (tool?.price || 0);
-  }, 0) || 0;
+    return total + (tool?.priceInUSDC || 0);
+  }, 0.5) || 0.5;
 
   const handleSkillToggle = (skill: string) => {
     const currentSkills = form.getValues("targetSkills");
-    const newSkills = currentSkills.includes(skill) 
+    const newSkills = currentSkills.includes(skill)
       ? currentSkills.filter(s => s !== skill)
       : [...currentSkills, skill];
     form.setValue("targetSkills", newSkills);
@@ -111,15 +101,54 @@ export default function NewCampaignPage() {
 
   const handleToolToggle = (toolId: string) => {
     const currentTools = form.getValues("selectedTools");
-    const newTools = currentTools.includes(toolId) 
+    const newTools = currentTools.includes(toolId)
       ? currentTools.filter(t => t !== toolId)
       : [...currentTools, toolId];
     form.setValue("selectedTools", newTools);
   };
 
-  const onSubmit = (values: z.infer<typeof campaignFormSchema>) => {
-    console.log("Campaign data:", values);
-    console.log("Total budget per contact:", totalBudget);
+  const onSubmit = async (values: z.infer<typeof campaignFormSchema>) => {
+    setIsSubmitting(true);
+    try {
+      const userId = user!.id;
+
+      const campaignData = {
+        userId,
+        title: values.campaignTitle,
+        description: values.campaignDescription,
+        searchIntent: values.searchIntent,
+        customSearchIntent: values.customSearchIntent,
+        targetSkills: values.targetSkills,
+        selectedTools: values.selectedTools,
+        totalBudgetInUSDC: totalBudget,
+        totalBudgetInEURC: parseFloat((totalBudget * USDC_EURC).toFixed(2)),
+        autoNegotiation: values.autoNegotiation,
+        autoFollowups: values.autoFollowups
+      };
+
+      const response = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(campaignData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        sessionStorage.setItem('pendingCampaignId', result.campaignId);
+        router.push(`/paywall?campaignId=${result.campaignId}`);
+      } else {
+        console.error('Failed to create campaign:', result.error);
+        setError(result.error);
+      }
+      console.error('Error creating campaign:', error);
+      setError('An unexpected error occurred');
+      console.error('Error creating campaign:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -149,11 +178,10 @@ export default function NewCampaignPage() {
                           {searchIntentTemplates.map((template) => (
                             <div
                               key={template.id}
-                              className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                                field.value === template.id 
-                                  ? 'border-primary bg-primary' 
+                              className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md ${field.value === template.id
+                                  ? 'border-primary bg-primary'
                                   : 'border-border hover:border-primary/50'
-                              }`}
+                                }`}
                               onClick={() => field.onChange(template.id)}
                             >
                               <h3 className="font-semibold text-sm">{template.name}</h3>
@@ -210,7 +238,7 @@ export default function NewCampaignPage() {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="campaignDescription"
@@ -263,54 +291,6 @@ export default function NewCampaignPage() {
                   )}
                 />
 
-                <Separator />
-
-                <FormField
-                  control={form.control}
-                  name="geography"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Geography</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select target geography" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {geographyOptions.map((geo) => (
-                            <SelectItem key={geo} value={geo.toLowerCase()}>{geo}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="audienceSize"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Target Audience Size</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select audience size" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="small">Small (1-100 contacts)</SelectItem>
-                          <SelectItem value="medium">Medium (100-500 contacts)</SelectItem>
-                          <SelectItem value="large">Large (500-1000 contacts)</SelectItem>
-                          <SelectItem value="enterprise">Enterprise (1000+ contacts)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </CardContent>
             </Card>
 
@@ -330,16 +310,19 @@ export default function NewCampaignPage() {
                           {budgetTools.map((tool) => (
                             <div
                               key={tool.id}
-                              className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                                field.value.includes(tool.id) 
-                                  ? 'border-primary bg-primary' 
+                              className={`p-4 border rounded-lg cursor-pointer transition-all ${field.value.includes(tool.id)
+                                  ? 'border-primary bg-primary'
                                   : 'border-border hover:border-primary'
-                              }`}
+                                }`}
                               onClick={() => handleToolToggle(tool.id)}
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <h3 className="font-semibold text-sm">{tool.name}</h3>
-                                <Badge>${tool.price}/contact</Badge>
+                                <div className="flex space-x-1">
+                                  <Badge>{tool.priceInUSDC} USDC</Badge>
+                                  <span className="text-xs self-center text-muted-foreground">or</span>
+                                  <Badge variant="outline">{tool.priceInEURC.toFixed(2)} EURC</Badge>
+                                </div>
                               </div>
                               <p className="text-xs text-muted-foreground">{tool.description}</p>
                               <div className="mt-2">
@@ -362,7 +345,13 @@ export default function NewCampaignPage() {
                 <div className="p-4 bg-background rounded-lg">
                   <div className="flex justify-between items-center">
                     <span className="font-semibold">Total Budget Estimate:</span>
-                    <span className="text-lg font-bold text-secondary">${totalBudget}/contact</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-lg font-bold text-secondary">{totalBudget} USDC</span>
+                      <div className="flex items-center gap-1 mt-1">
+                      <span className="text-xs px-1.5 py-0.5 bg-muted rounded-full text-muted-foreground">OR</span>
+                      <span className="text-sm font-medium">{(totalBudget * USDC_EURC).toFixed(2)} EURC</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -388,14 +377,12 @@ export default function NewCampaignPage() {
                           <button
                             type="button"
                             onClick={() => field.onChange(!field.value)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                              field.value ? 'bg-primary' : 'bg-gray-200'
-                            }`}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${field.value ? 'bg-primary' : 'bg-gray-200'
+                              }`}
                           >
                             <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                field.value ? 'translate-x-6' : 'translate-x-1'
-                              }`}
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${field.value ? 'translate-x-6' : 'translate-x-1'
+                                }`}
                             />
                           </button>
                         </FormControl>
@@ -418,14 +405,12 @@ export default function NewCampaignPage() {
                           <button
                             type="button"
                             onClick={() => field.onChange(!field.value)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                              field.value ? 'bg-primary' : 'bg-gray-200'
-                            }`}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${field.value ? 'bg-primary' : 'bg-gray-200'
+                              }`}
                           >
                             <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                field.value ? 'translate-x-6' : 'translate-x-1'
-                              }`}
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${field.value ? 'translate-x-6' : 'translate-x-1'
+                                }`}
                             />
                           </button>
                         </FormControl>
@@ -436,17 +421,23 @@ export default function NewCampaignPage() {
               </CardContent>
             </Card>
 
-              <Button 
-                type="submit"
-                variant="default"
-                size="lg"
-                className="px-8 py-3 text-lg justify-center w-full h-12"
-              >
-                Launch Campaign Agent
-                <Rocket className="ml-2 h-5 w-5 inline-block" />
-              </Button>
+            <Button
+              type="submit"
+              variant="default"
+              size="lg"
+              className="px-8 py-3 text-lg justify-center w-full h-12"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Creating Campaign...' : 'Launch Campaign Agent'}
+              <Rocket className="ml-2 h-5 w-5 inline-block" />
+            </Button>
           </form>
         </Form>
+        {error && (
+          <div className="text-red-500 text-center mt-4">
+            <p>Error creating campaign: {error}</p>
+          </div>
+        )}
       </div>
     </div>
   );

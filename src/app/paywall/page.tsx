@@ -1,7 +1,7 @@
 "use client";
 
 import { Wallet } from "@coinbase/onchainkit/wallet";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PaymentRequirements, PaymentPayload } from "x402/types";
 import { preparePaymentHeader } from "x402/client";
 import { getNetworkId } from "x402/shared";
@@ -15,21 +15,49 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ASSET_ADDRESSES } from "@/lib/constants";
 
+interface CampaignData {
+  id: string;
+  title: string;
+  description: string;
+  totalBudgetInUSDC: number;
+  totalBudgetInEURC: number;
+  selectedTools: string[];
+  targetSkills: string[];
+  searchIntent: string;
+  customSearchIntent?: string;
+}
+
 function PaymentForm({
   paymentRequirements,
   onPaymentAmountChange,
-  onTokenChange
+  onTokenChange,
+  campaignId,
+  campaignData
 }: {
   paymentRequirements: PaymentRequirements;
   onPaymentAmountChange: (amount: string) => void;
   onTokenChange: (token: "USDC" | "EURC") => void;
+  campaignId?: string | null;
+  campaignData?: CampaignData | null;
 }) {
   const { address, isConnected } = useAccount();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState(paymentRequirements.maxAmountRequired);
+  const [paymentAmount, setPaymentAmount] = useState<string>(paymentRequirements.maxAmountRequired);
   const [token, setToken] = useState<"USDC" | "EURC">(paymentRequirements.extra?.name as "USDC" | "EURC" || "USDC");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Update payment amount when campaign data or token changes
+  useEffect(() => {
+    if (campaignData) {
+      const newAmount = token === "USDC"
+        ? campaignData.totalBudgetInUSDC.toString()
+        : campaignData.totalBudgetInEURC.toString();
+      setPaymentAmount(newAmount);
+      const amountInTokenPrecision = (parseFloat(newAmount) * 1000000).toString();
+      onPaymentAmountChange(amountInTokenPrecision);
+    }
+  }, [campaignData, token, onPaymentAmountChange]);
 
   const handleAmountChange = (value: string) => {
     const numValue = parseFloat(value);
@@ -41,7 +69,24 @@ function PaymentForm({
     }
 
     setPaymentAmount(value);
-    onPaymentAmountChange(value);
+    const amountInTokenPrecision = (numValue * 1000000).toString();
+    onPaymentAmountChange(amountInTokenPrecision);
+  };
+
+  const handleTokenChange = (newToken: "USDC" | "EURC") => {
+    setToken(newToken);
+    onTokenChange(newToken);
+
+    // Update payment amount based on campaign data and selected token
+    if (campaignData) {
+      const newAmount = newToken === "USDC"
+        ? campaignData.totalBudgetInUSDC.toString()
+        : campaignData.totalBudgetInEURC.toString();
+      setPaymentAmount(newAmount);
+      // Convert to token precision (10^6) for internal processing
+      const amountInTokenPrecision = (parseFloat(newAmount) * 1000000).toString();
+      onPaymentAmountChange(amountInTokenPrecision);
+    }
   };
 
   const { signTypedDataAsync } = useSignTypedData();
@@ -51,7 +96,8 @@ function PaymentForm({
       setError('Please enter a valid payment amount');
       return;
     }
-
+    
+    const amountInTokenPrecision = (parseFloat(paymentAmount) * 1000000).toString();
     setIsProcessing(true);
     setError(null);
     setSuccess(false);
@@ -59,7 +105,7 @@ function PaymentForm({
     try {
       const actualPaymentRequirements = {
         ...paymentRequirements,
-        maxAmountRequired: paymentAmount
+        maxAmountRequired: amountInTokenPrecision
       };
 
       const unSignedPaymentHeader = preparePaymentHeader(
@@ -101,7 +147,7 @@ function PaymentForm({
       };
 
       const payment: string = exact.evm.encodePayment(paymentPayload);
-      const verifyPaymentWithPayment = verifyPayment.bind(null, payment, paymentAmount, token);
+      const verifyPaymentWithPayment = verifyPayment.bind(null, payment, amountInTokenPrecision, token, campaignId);
       const result = await verifyPaymentWithPayment();
 
       if (result && result.startsWith('Error:')) {
@@ -155,20 +201,14 @@ function PaymentForm({
             <div className="flex items-center space-x-2">
               <Button
                 variant={token === "USDC" ? "secondary" : "outline"}
-                onClick={() => {
-                  setToken("USDC");
-                  onTokenChange("USDC");
-                }}
+                onClick={() => handleTokenChange("USDC")}
                 className="flex-1"
               >
                 USDC
               </Button>
               <Button
                 variant={token === "EURC" ? "secondary" : "outline"}
-                onClick={() => {
-                  setToken("EURC");
-                  onTokenChange("EURC");
-                }}
+                onClick={() => handleTokenChange("EURC")}
                 className="flex-1"
               >
                 EURC
@@ -177,7 +217,7 @@ function PaymentForm({
           </div>
           <div className="space-y-4">
             <label htmlFor="amount" className="text-sm font-medium">
-              Payment Amount
+              Payment Amount {campaignData ? "(Fixed by Campaign)" : ""}
             </label>
 
             <div className="relative">
@@ -189,13 +229,22 @@ function PaymentForm({
                 placeholder="Enter custom amount"
                 min="0"
                 max={paymentRequirements.maxAmountRequired}
-                step="0.01"
                 className="pr-16"
+                readOnly={!!campaignData}
+                disabled={!!campaignData}
               />
               <Badge variant="secondary" className="absolute right-2 top-1/2 -translate-y-1/2">
                 {paymentRequirements.extra?.name || 'USDC'}
               </Badge>
             </div>
+
+            {campaignData && (
+              <div className="p-3 bg-primary/10 border border-primary rounded-md">
+                <p className="text-sm text-secondary">
+                  <strong>Campaign:</strong> {campaignData.title}<br />
+                </p>
+              </div>
+            )}
           </div>
 
           <Separator />
@@ -252,8 +301,91 @@ function PaymentForm({
 }
 
 export default function Paywall() {
-  const [maxAmountRequired, setMaxAmountRequired] = useState("100000");
+  const [amountInUSDC, setAmountInUSDC] = useState<string>("0");
+  const [amountInEURC, setAmountInEURC] = useState<string>("0");
   const [token, setToken] = useState<"USDC" | "EURC">("USDC");
+  const [campaignId, setCampaignId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [campaignData, setCampaignData] = useState<CampaignData | null>(null);
+
+  const handleAmountChange = (tokenPrecisionAmount: string) => {
+    if (token === "USDC") {
+      setAmountInUSDC(tokenPrecisionAmount);
+    } else {
+      setAmountInEURC(tokenPrecisionAmount);
+    }
+  };
+
+  useEffect(() => {
+    const fetchCampaignData = async () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const campaignIdFromUrl = urlParams.get('campaignId');
+
+        let targetCampaignId = campaignIdFromUrl;
+
+        if (!targetCampaignId) {
+          targetCampaignId = sessionStorage.getItem('pendingCampaignId');
+        }
+
+        if (targetCampaignId) {
+          setCampaignId(targetCampaignId);
+
+          const response = await fetch(`/api/campaigns/${targetCampaignId}`);
+          const result = await response.json();
+
+          if (result.campaign) {
+            setCampaignData(result.campaign);
+            // Store token precision amounts (10^6)
+            setAmountInUSDC((result.campaign.totalBudgetInUSDC * 1000000).toString());
+            setAmountInEURC((result.campaign.totalBudgetInEURC * 1000000).toString());
+          } else {
+            console.error('Campaign not found');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching campaign data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCampaignData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto text-center">
+            <h2 className="text-2xl font-semibold mb-2">Loading Campaign...</h2>
+            <p className="text-muted-foreground">Fetching secure payment details...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!campaignId || !campaignData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-destructive">Campaign Not Found</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  The requested campaign could not be found. Please create a new campaign.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const assetAddress = process.env.NEXT_PUBLIC_NODE_ENV === "production"
     ? token === "USDC"
@@ -266,9 +398,12 @@ export default function Paywall() {
   const paymentRequirements: PaymentRequirements = {
     scheme: "exact",
     network: process.env.NEXT_PUBLIC_NODE_ENV === "production" ? "base" : "base-sepolia",
-    maxAmountRequired: maxAmountRequired,
-    resource: "/protected",
-    description: "Access to Premium Content",
+    maxAmountRequired: token === "USDC"
+      ? amountInUSDC : amountInEURC,
+    resource: "/executing",
+    description: campaignData
+      ? `Payment for Campaign: ${campaignData.title} - ${campaignData.totalBudgetInUSDC} USDC / ${campaignData.totalBudgetInEURC} EURC`
+      : "Access to Premium Content",
     mimeType: "text/html",
     payTo: process.env.NEXT_PUBLIC_RESOURCE_WALLET_ADDRESS as string,
     maxTimeoutSeconds: 60,
@@ -304,17 +439,17 @@ export default function Paywall() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Secure Payment Gateway</h1>
         </div>
 
-        {/* Payment Form */}
         <div className="max-w-2xl mx-auto px-4 sm:px-0">
           <PaymentForm
             paymentRequirements={paymentRequirements}
-            onPaymentAmountChange={setMaxAmountRequired}
+            onPaymentAmountChange={handleAmountChange}
             onTokenChange={setToken}
+            campaignId={campaignId}
+            campaignData={campaignData}
           />
         </div>
 
