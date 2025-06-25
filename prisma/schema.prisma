@@ -50,10 +50,30 @@ model Campaign {
   autoNegotiation    Boolean  @default(false)
   autoFollowups      Boolean  @default(false)
   isPaid             Boolean  @default(false)
+  status             String   @default("draft")
   paymentAmount      String?
   paymentToken       String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contacts Contact[]
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  role        String?
+  description String?
+  ai_score    Int?
+  ai_strengths String[]
+  ai_concerns String[]
+  ai_reasoning String?
+  contacted   Boolean  @default(false)
+  responded   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 }

@@ -5,7 +5,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   try {
     const { id: campaignId } = await params;
     const body = await request.json();
-    const { isPaid, paymentAmount, paymentToken } = body;
+    const { isPaid, paymentAmount, paymentToken, status } = body;
 
     if (!campaignId) {
       return NextResponse.json(
@@ -14,17 +14,26 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       );
     }
 
-    // Update campaign payment status
+    const updateData: {
+      updatedAt: Date;
+      isPaid?: boolean;
+      paymentAmount?: string;
+      paymentToken?: string;
+      status?: string;
+    } = {
+      updatedAt: new Date()
+    };
+
+    if (isPaid !== undefined) updateData.isPaid = isPaid;
+    if (paymentAmount !== undefined) updateData.paymentAmount = paymentAmount;
+    if (paymentToken !== undefined) updateData.paymentToken = paymentToken;
+    if (status !== undefined) updateData.status = status;
+
     const updatedCampaign = await prisma.campaign.update({
       where: {
         id: campaignId
       },
-      data: {
-        isPaid: isPaid || false,
-        paymentAmount,
-        paymentToken,
-        updatedAt: new Date()
-      }
+      data: updateData
     });
 
     return NextResponse.json({ 
