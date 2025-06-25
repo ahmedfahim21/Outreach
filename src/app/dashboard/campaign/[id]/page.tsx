@@ -11,16 +11,13 @@ import {
   Trash2,
   TrendingUp,
   Users,
-  DollarSign,
   MessageSquare,
-  Target,
   Clock,
   CheckCircle,
   AlertCircle,
   Mail,
   Phone,
   Linkedin,
-  ExternalLink,
   Calendar,
   Star,
   Download
@@ -123,46 +120,6 @@ const mockCampaignDetails = {
         response: "Thanks for reaching out! I'd like to learn more.",
         followUpPlan: "Send calendar link for meeting"
       }
-    ],
-    toolUsage: [
-      {
-        tool: "Email Finder",
-        contacts: 127,
-        cost: 254,
-        successRate: 94
-      },
-      {
-        tool: "LinkedIn Scraper",
-        contacts: 89,
-        cost: 445,
-        successRate: 87
-      },
-      {
-        tool: "AI Personalization",
-        messages: 156,
-        cost: 936,
-        successRate: 23
-      }
-    ],
-    negotiations: [
-      {
-        id: "1",
-        leadName: "John Smith",
-        company: "TechCorp Inc",
-        suggestedPayment: "$2,500/month",
-        status: "in_progress",
-        scheduledMeeting: "2025-06-20 14:00",
-        notes: "Interested in enterprise plan with custom integrations"
-      },
-      {
-        id: "2",
-        leadName: "Mike Chen", 
-        company: "InnovateLabs",
-        suggestedPayment: "$1,200/month",
-        status: "accepted",
-        scheduledMeeting: "2025-06-19 10:00",
-        notes: "Ready to proceed with standard plan"
-      }
     ]
   }
 };
@@ -210,9 +167,7 @@ export default function CampaignDetailPage() {
   const tabs = [
     { id: "overview", label: "Overview", icon: TrendingUp },
     { id: "leads", label: "Leads List", icon: Users },
-    { id: "outreach", label: "Outreach Logs", icon: MessageSquare },
-    { id: "tools", label: "Tool Usage", icon: Target },
-    { id: "negotiations", label: "Negotiations", icon: DollarSign }
+    { id: "outreach", label: "Outreach Logs", icon: MessageSquare }
   ];
 
   return (
@@ -492,99 +447,6 @@ export default function CampaignDetailPage() {
           </Card>
         )}
 
-        {activeTab === "tools" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Tool Usage & Costs</CardTitle>
-              <CardDescription>Breakdown of tools used and their performance</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {campaign.toolUsage.map((tool, index) => (
-                  <div key={index} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-medium">{tool.tool}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {tool.contacts} contacts processed
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold">${tool.cost}</p>
-                        <p className="text-sm text-muted-foreground">Total cost</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Success Rate</p>
-                        <p className="text-2xl font-bold text-green-600">{tool.successRate}%</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Cost per Contact</p>
-                        <p className="text-2xl font-bold">${(tool.contacts && tool.contacts > 0) ? (tool.cost / tool.contacts).toFixed(2) : '0.00'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Total Contacts</p>
-                        <p className="text-2xl font-bold">{tool.contacts}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {activeTab === "negotiations" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Negotiations & Meetings</CardTitle>
-              <CardDescription>Active negotiations and scheduled meetings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {campaign.negotiations.map((negotiation) => (
-                <div key={negotiation.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="font-medium">{negotiation.leadName}</h3>
-                      <p className="text-sm text-muted-foreground">{negotiation.company}</p>
-                    </div>
-                    <Badge className={getStatusColor(negotiation.status)}>
-                      {negotiation.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Suggested Payment</p>
-                      <p className="text-lg font-bold text-green-600">{negotiation.suggestedPayment}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Scheduled Meeting</p>
-                      <p className="text-sm flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        {new Date(negotiation.scheduledMeeting).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <p className="text-sm font-medium text-muted-foreground">Notes</p>
-                    <p className="text-sm">{negotiation.notes}</p>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button size="sm" variant="outline">
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Join Meeting
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Send Message
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

@@ -147,7 +147,8 @@ export default function CampaignsPage() {
                 </div>
 
                 <div className="flex justify-end gap-1">
-                  <Link href={`/dashboard/campaign/${campaign.id}`}>
+                  {/* <Link href={`/dashboard/campaign/${campaign.id}`}> */}
+                  <Link href={`/dashboard/campaign/1`}>
                     <Button variant="ghost" size="sm">
                       <Eye className="h-4 w-4" />
                     </Button>
