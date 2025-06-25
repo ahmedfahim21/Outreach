@@ -43,6 +43,8 @@ interface Contact {
   ai_strengths?: string[];
   ai_concerns?: string[];
   ai_reasoning?: string;
+  contacted?: boolean;
+  responded?: boolean;
 }
 
 interface StreamMessage {
@@ -52,20 +54,40 @@ interface StreamMessage {
   session_id?: string;
 }
 
+interface ScoredCandidate {
+  name: string;
+  description?: string;
+  role?: string;
+  ai_score: number;
+  ai_strengths: string[];
+  ai_concerns: string[];
+  ai_reasoning: string;
+}
+
+interface SummaryData {
+  raw_user_query?: string;
+  candidates_found?: number;
+  top_candidates?: number;
+  outreach_messages?: number;
+  meetings_scheduled?: number;
+  errors?: number;
+  function_calls?: number;
+}
+
 export default function ExecutingPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [streamMessages, setStreamMessages] = useState<StreamMessage[]>([]);
-  const [summaryData, setSummaryData] = useState(null);
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [streamReady, setStreamReady] = useState(false);
   const [waitingForInput, setWaitingForInput] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [executionComplete, setExecutionComplete] = useState(false);
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [currentInputPrompt, setCurrentInputPrompt] = useState("");
   const [pendingInitialMessage, setPendingInitialMessage] = useState<string | null>(null);
+  const [actualContacts, setActualContacts] = useState<Contact[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -128,6 +150,67 @@ export default function ExecutingPage() {
     }
   }, [campaign?.id]);
 
+  const fetchContactsFromDB = useCallback(async () => {
+    if (!campaign?.id) return;
+    
+    try {
+      const response = await fetch(`/api/campaigns/${campaign.id}/contacts`);
+      const result = await response.json();
+      if (result.success && result.contacts) {
+        setActualContacts(result.contacts);
+      }
+    } catch (error) {
+      console.error('Error fetching contacts from database:', error);
+    }
+  }, [campaign?.id]);
+
+  // Fetch contacts when campaign changes
+  useEffect(() => {
+    if (campaign?.id) {
+      fetchContactsFromDB();
+    }
+  }, [campaign?.id, fetchContactsFromDB]);
+
+  const saveContactsToDatabase = useCallback(async (scoredCandidates: ScoredCandidate[]) => {
+    if (!campaign?.id || !scoredCandidates || scoredCandidates.length === 0) {
+      return;
+    }
+
+    try {
+      console.log('Saving contacts to database:', scoredCandidates);
+      
+      const response = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          campaignId: campaign.id,
+          contacts: scoredCandidates.map(candidate => ({
+            name: candidate.name || 'Unknown',
+            role: candidate.role || null,
+            description: candidate.description || null,
+            ai_score: candidate.ai_score || 0,
+            ai_strengths: candidate.ai_strengths || [],
+            ai_concerns: candidate.ai_concerns || [],
+            ai_reasoning: candidate.ai_reasoning || null
+          }))
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        console.log('Contacts saved successfully:', result.contacts?.length);
+        // Refresh contacts from database to show updated count
+        await fetchContactsFromDB();
+      } else {
+        console.error('Failed to save contacts:', result.error);
+      }
+    } catch (error) {
+      console.error('Error saving contacts to database:', error);
+    }
+  }, [campaign?.id, fetchContactsFromDB]);
+
   const handleStreamMessage = useCallback(async (message: StreamMessage) => {
     if (message.type === 'heartbeat' || message.type === 'connected') {
       return;
@@ -148,6 +231,15 @@ export default function ExecutingPage() {
         break;
         
       case 'function_result':
+        // Check if this function result contains scored_candidates
+        if (typeof message.content === 'object' && message.content !== null) {
+          const contentObj = message.content as { scored_candidates?: ScoredCandidate[] };
+          if (contentObj.scored_candidates && Array.isArray(contentObj.scored_candidates)) {
+            console.log('Found scored candidates in function result:', contentObj.scored_candidates.length);
+            await saveContactsToDatabase(contentObj.scored_candidates);
+          }
+        }
+
         const currentSessionId = sessionIdRef.current || message.session_id;
         if (currentSessionId) {
           console.log('Fetching summary for session:', currentSessionId);
@@ -155,7 +247,8 @@ export default function ExecutingPage() {
             const summaryResponse = await fetch(`/api/ai/get-summary/${currentSessionId}`);
             const summaryResult = await summaryResponse.json();
             if (summaryResult.success) {
-              setSummaryData(summaryResult.summary);
+                console.log('Summary fetched successfully:', summaryResult.message);
+              setSummaryData(summaryResult.message);
             }
           } catch (error) {
             console.error('Error fetching summary:', error);
@@ -168,7 +261,7 @@ export default function ExecutingPage() {
       case 'error':
         break;
     }
-  }, [markCampaignComplete]);
+  }, [markCampaignComplete, saveContactsToDatabase]);
 
   const connectToStream = useCallback(async (sessionId: string) => {
     // Close existing connection if any
@@ -305,10 +398,7 @@ export default function ExecutingPage() {
 Campaign Description: ${campaignData.description}
 Search Intent: ${campaignData.searchIntent}
 ${campaignData.customSearchIntent ? `Custom Search Intent: ${campaignData.customSearchIntent}` : ''}
-Target Skills: ${campaignData.targetSkills.join(', ')}
-Selected Tools: ${campaignData.selectedTools.join(', ')}
-
-Please begin the outreach process by finding potential candidates based on these criteria.`;
+Target Skills: ${campaignData.targetSkills.join(', ')}`;
         
         console.log('Setting pending initial message');
         setPendingInitialMessage(initialMessage);
@@ -409,6 +499,46 @@ Please begin the outreach process by finding potential candidates based on these
     }
   };
 
+  const renderSummaryData = () => {
+    if (!summaryData) {
+      return (
+        <div className="text-center text-muted-foreground py-8">
+          <div className="animate-pulse">
+            <div className="h-3 w-3 bg-gray-400 rounded-full mx-auto mb-4"></div>
+            <p>Waiting for campaign summary...</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="text-center p-4 bg-muted/50 rounded-lg">
+            <div className="text-2xl font-bold text-blue-600">{summaryData.candidates_found || 0}</div>
+            <div className="text-sm text-muted-foreground">Candidates Found</div>
+          </div>
+          <div className="text-center p-4 bg-muted/50 rounded-lg">
+            <div className="text-2xl font-bold text-green-600">{summaryData.top_candidates || 0}</div>
+            <div className="text-sm text-muted-foreground">Top Candidates</div>
+          </div>
+          <div className="text-center p-4 bg-muted/50 rounded-lg">
+            <div className="text-2xl font-bold text-purple-600">{summaryData.outreach_messages || 0}</div>
+            <div className="text-sm text-muted-foreground">Messages Sent</div>
+          </div>
+          <div className="text-center p-4 bg-muted/50 rounded-lg">
+            <div className="text-2xl font-bold text-orange-600">{summaryData.meetings_scheduled || 0}</div>
+            <div className="text-sm text-muted-foreground">Meetings Scheduled</div>
+          </div>
+        </div>
+        
+        <div className="space-y-3">
+          
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -481,11 +611,12 @@ Please begin the outreach process by finding potential candidates based on these
                   <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Progress</h4>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">{contacts.length}</div>
+                      <div className="text-2xl font-bold text-blue-600">{actualContacts.length}</div>
                       <div className="text-xs text-muted-foreground">Contacts Found</div>
                     </div>
                     <div className="text-center p-3 bg-muted/50 rounded-lg">
                       <div className="text-2xl font-bold text-green-600">
+                        {actualContacts.filter(contact => contact.contacted).length}
                       </div>
                       <div className="text-xs text-muted-foreground">Contacted</div>
                     </div>
@@ -577,7 +708,7 @@ Please begin the outreach process by finding potential candidates based on these
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto">
-              {summaryData}
+              {renderSummaryData()}
             </CardContent>
           </Card>
         </div>
@@ -590,7 +721,7 @@ Please begin the outreach process by finding potential candidates based on these
                 <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Campaign Execution Complete!</h3>
                 <p className="text-muted-foreground mb-4">
-                  Found {contacts.length} potential contacts for your outreach campaign.
+                  Found {actualContacts.length} potential contacts for your outreach campaign.
                 </p>
                 <Button onClick={() => router.push('/dashboard')}>
                   Return to Dashboard
