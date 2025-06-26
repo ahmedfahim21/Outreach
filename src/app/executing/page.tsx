@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, CheckCircle, AlertCircle, Users, MessageSquare } from "lucide-react";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader, SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { Header } from "@/components/header";
+import { Loader2, Send, CheckCircle, AlertCircle, Users, MessageSquare, Play, BarChart3, Square, Trash2, Bot, Zap, Target, TrendingUp, Clock, Activity, Sparkles, ArrowLeft, Settings, Brain, Eye, FileText, Link, Hash, Coffee } from "lucide-react";
 
 interface Campaign {
   id: string;
@@ -336,27 +338,21 @@ export default function ExecutingPage() {
         const campaignId = campaignIdFromUrl || sessionStorage.getItem('pendingCampaignId');
         
         if (campaignId) {
-          const response = await fetch(`/api/campaigns/${campaignId}`);
-          const result = await response.json();
+          // const response = await fetch(`/api/campaigns/${campaignId}`);
+          // const result = await response.json();
           
-          if (result.campaign) {
-            if (!result.campaign.isPaid) {
-              router.push(`/paywall?campaignId=${campaignId}`);
-              return;
-            }
-            
-            setCampaign(result.campaign);
-            
-            if (result.campaign.isPaid) {
-              sessionStorage.removeItem('pendingCampaignId');
-              // Start AI session with campaign data
-              await startAISession(campaignId, result.campaign);
-            }
-          } else {
-            router.push('/paywall');
-          }
+          // if (result.campaign) {
+            // setCampaign(result.campaign);
+            // sessionStorage.removeItem('pendingCampaignId');
+            // Start AI session with campaign data
+            // await startAISession(campaignId, result.campaign);
+          // } else {
+            // console.error('Campaign not found');
+            // router.push('/dashboard');
+          // }
         } else {
-          router.push('/paywall');
+          // console.error('No campaign ID provided');
+          // router.push('/dashboard');
         }
       } catch (error) {
         console.error('Error fetching campaign:', error);
@@ -394,12 +390,10 @@ export default function ExecutingPage() {
         await new Promise(resolve => setTimeout(resolve, 10));
         
         // Prepare the initial message
-        const initialMessage = `Start outreach campaign for: ${campaignData.title}. 
-Campaign Description: ${campaignData.description}
-Search Intent: ${campaignData.searchIntent}
-${campaignData.customSearchIntent ? `Custom Search Intent: ${campaignData.customSearchIntent}` : ''}
-Target Skills: ${campaignData.targetSkills.join(', ')}`;
-        
+        const initialMessage = `${campaignData.description}
+          Looking for People with Skills: ${campaignData.targetSkills.join(', ')}
+          With a budget of ${campaignData.totalBudgetInUSDC} USDC}`;
+                    
         console.log('Setting pending initial message');
         setPendingInitialMessage(initialMessage);
         await connectToStream(newSessionId);
@@ -409,13 +403,74 @@ Target Skills: ${campaignData.targetSkills.join(', ')}`;
     }
   };
 
+  const clearChat = () => {
+    setStreamMessages([]);
+    setSummaryData(null);
+  };
+
+  const getSummary = async () => {
+    if (!isConnected || !sessionIdRef.current) return;
+
+    try {
+      const summaryResponse = await fetch(`/api/ai/get-summary/${sessionIdRef.current}`);
+      const summaryResult = await summaryResponse.json();
+      if (summaryResult.success) {
+        setSummaryData(summaryResult.message);
+      }
+    } catch (error) {
+      console.error('Error getting summary:', error);
+    }
+  };
+
+  const endSession = async () => {
+    if (!isConnected || !sessionIdRef.current) return;
+
+    try {
+      await fetch(`/api/ai/end-session/${sessionIdRef.current}`, { method: 'POST' });
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+      setIsConnected(false);
+      setSessionId(null);
+      sessionIdRef.current = null;
+      setStreamMessages(prev => [...prev, {
+        type: 'system',
+        content: 'Session ended',
+        timestamp: new Date().toISOString()
+      }]);
+    } catch (error) {
+      console.error('Error ending session:', error);
+    }
+  };
+
+  const startNewSession = async () => {
+    if (!campaign?.id) return;
+    
+    try {
+      await startAISession(campaign.id, campaign);
+    } catch (error) {
+      console.error('Error starting new session:', error);
+    }
+  };
+
   const handleInputSubmit = async () => {
     if (!inputValue.trim() || !sessionIdRef.current) return;
 
     const message = inputValue;
     setInputValue("");
-    setWaitingForInput(false);
-    setCurrentInputPrompt("");
+    
+    // Add user message to the chat immediately for better UX
+    setStreamMessages(prev => [...prev, {
+      type: 'user_message',
+      content: message,
+      timestamp: new Date().toISOString()
+    }]);
+
+    // If this was in response to an input request, clear the waiting state
+    if (waitingForInput) {
+      setWaitingForInput(false);
+      setCurrentInputPrompt("");
+    }
 
     await sendMessage(message);
   };
@@ -423,28 +478,116 @@ Target Skills: ${campaignData.targetSkills.join(', ')}`;
   const getMessageIcon = (type: string) => {
     switch (type) {
       case 'completion':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
       case 'function_call':
-        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />;
+        return <Zap className="h-4 w-4 text-blue-500" />;
       case 'input_request':
-        return <MessageSquare className="h-5 w-5 text-yellow-500" />;
+        return <MessageSquare className="h-4 w-4 text-yellow-500" />;
       case 'info':
-        return <div className="h-5 w-5 bg-blue-500 rounded-full" />;
+        return <Eye className="h-4 w-4 text-blue-500" />;
       case 'user_message':
-        return <div className="h-5 w-5 bg-purple-500 rounded-full" />;
+        return <Users className="h-4 w-4 text-white" />;
       case 'agent_thought':
-        return <div className="h-5 w-5 bg-green-400 rounded-full" />;
+        return <Brain className="h-4 w-4 text-green-500" />;
       case 'agent_thinking':
-        return <Loader2 className="h-5 w-5 text-gray-500 animate-spin" />;
+        return <Loader2 className="h-4 w-4 text-gray-500 animate-spin" />;
       case 'display_to_user':
-        return <div className="h-5 w-5 bg-gray-500 rounded-full" />;
+      case 'display_message':
+        return <Bot className="h-4 w-4 text-purple-500" />;
       case 'function_result':
-        return <CheckCircle className="h-5 w-5 text-blue-600" />;
+        return <CheckCircle className="h-4 w-4 text-blue-600" />;
+      case 'system':
+        return <Settings className="h-4 w-4 text-gray-500" />;
       default:
-        return <div className="h-5 w-5 bg-gray-300 rounded-full" />;
+        return <Activity className="h-4 w-4 text-gray-400" />;
     }
+  };
+
+  const getMessageClass = (type: string) => {
+    const baseClass = "p-3 rounded-lg border-l-4 transition-all duration-300 ";
+    switch (type) {
+      case 'user_message':
+        return baseClass + "bg-blue-50 border-blue-400";
+      case 'agent_thought':
+        return baseClass + "bg-green-50 border-green-400";
+      case 'display_message':
+        return baseClass + "bg-purple-50 border-purple-400";
+      case 'function_call':
+        return baseClass + "bg-yellow-50 border-yellow-400";
+      case 'function_result':
+        return baseClass + "bg-cyan-50 border-cyan-400";
+      case 'input_request':
+        return baseClass + "bg-orange-50 border-orange-400";
+      case 'error':
+        return baseClass + "bg-red-50 border-red-400";
+      case 'system':
+        return baseClass + "bg-gray-50 border-gray-400";
+      case 'completion':
+        return baseClass + "bg-green-50 border-green-400";
+      default:
+        return baseClass + "bg-gray-50 border-gray-300";
+    }
+  };
+
+  const getMessageIconBg = (type: string) => {
+    switch (type) {
+      case 'user_message':
+        return "bg-blue-500/10 border border-blue-200";
+      case 'agent_thought':
+        return "bg-green-500/10 border border-green-200";
+      case 'display_message':
+        return "bg-purple-500/10 border border-purple-200";
+      case 'function_call':
+        return "bg-blue-500/10 border border-blue-200";
+      case 'function_result':
+        return "bg-cyan-500/10 border border-cyan-200";
+      case 'input_request':
+        return "bg-orange-500/10 border border-orange-200";
+      case 'error':
+        return "bg-red-500/10 border border-red-200";
+      case 'system':
+        return "bg-gray-500/10 border border-gray-200";
+      case 'completion':
+        return "bg-green-500/10 border border-green-200";
+      default:
+        return "bg-gray-500/10 border border-gray-200";
+    }
+  };
+
+  const getMessageLabel = (type: string) => {
+    switch (type) {
+      case 'user_message':
+        return "You";
+      case 'agent_thought':
+        return "Agent Thinking";
+      case 'display_message':
+        return "Agent";
+      case 'function_call':
+        return "Function Call";
+      case 'function_result':
+        return "Result";
+      case 'input_request':
+        return "Input Required";
+      case 'error':
+        return "Error";
+      case 'system':
+        return "System";
+      case 'completion':
+        return "Complete";
+      default:
+        return "Message";
+    }
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   const formatMessageContent = (type: string, content: StreamMessage['content']) => {
@@ -452,9 +595,9 @@ Target Skills: ${campaignData.targetSkills.join(', ')}`;
       case 'function_call':
         if (typeof content === 'object' && content !== null && 'name' in content) {
           const functionCall = content as { name: string };
-          return `🔧 Executing: ${functionCall.name.replace('_', ' ')}`;
+          return `Executing: ${functionCall.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
         }
-        return '🔧 Executing function...';
+        return 'Executing function...';
       case 'function_result':
         if (typeof content === 'object' && content !== null) {
           const objContent = content as { 
@@ -465,272 +608,498 @@ Target Skills: ${campaignData.targetSkills.join(', ')}`;
           };
           
           if (objContent.type === 'candidates') {
-            return `✅ Found ${objContent.count || 0} qualified candidates`;
+            return `Found ${objContent.count || 0} qualified candidates`;
           } else if (objContent.type === 'search_results') {
-            return `🔍 Found ${objContent.count || 0} search results`;
+            return `Found ${objContent.count || 0} search results`;
           } else if (objContent.count !== undefined) {
-            return `📊 Processed ${objContent.count} items`;
+            return `Processed ${objContent.count} items`;
           } else {
             // Try to make JSON more readable
             const jsonStr = JSON.stringify(content, null, 2);
             if (jsonStr.length > 200) {
-              return `📄 Result: ${jsonStr}`;
+              return `Result data available (${jsonStr.length} chars)`;
             }
-            return `📄 ${jsonStr}`;
+            return jsonStr;
           }
         }
         return String(content);
       case 'info':
-        return `ℹ️ ${String(content)}`;
+        return String(content);
       case 'user_message':
-        return `👤 You: ${String(content)}`;
+        return String(content);
       case 'agent_thought':
-        return `💭 ${String(content)}`;
+        return String(content);
       case 'agent_thinking':
-        return `🤔 ${String(content)}`;
+        return String(content);
       case 'display_message':
-        return `💬 ${String(content)}`;
+        return String(content);
       case 'completion':
-        return `🎉 ${String(content)}`;
+        return String(content);
       case 'error':
-        return `❌ ${String(content)}`;
+        return String(content);
       default:
         return String(content);
     }
   };
 
-  const renderSummaryData = () => {
-    if (!summaryData) {
-      return (
-        <div className="text-center text-muted-foreground py-8">
-          <div className="animate-pulse">
-            <div className="h-3 w-3 bg-gray-400 rounded-full mx-auto mb-4"></div>
-            <p>Waiting for campaign summary...</p>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="text-center p-4 bg-muted/50 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">{summaryData.candidates_found || 0}</div>
-            <div className="text-sm text-muted-foreground">Candidates Found</div>
-          </div>
-          <div className="text-center p-4 bg-muted/50 rounded-lg">
-            <div className="text-2xl font-bold text-green-600">{summaryData.top_candidates || 0}</div>
-            <div className="text-sm text-muted-foreground">Top Candidates</div>
-          </div>
-          <div className="text-center p-4 bg-muted/50 rounded-lg">
-            <div className="text-2xl font-bold text-purple-600">{summaryData.outreach_messages || 0}</div>
-            <div className="text-sm text-muted-foreground">Messages Sent</div>
-          </div>
-          <div className="text-center p-4 bg-muted/50 rounded-lg">
-            <div className="text-2xl font-bold text-orange-600">{summaryData.meetings_scheduled || 0}</div>
-            <div className="text-sm text-muted-foreground">Meetings Scheduled</div>
-          </div>
-        </div>
-        
-        <div className="space-y-3">
-          
-        </div>
-      </div>
-    );
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold mb-2">Loading campaign...</h2>
-          <p className="text-muted-foreground">Processing your payment and campaign data...</p>
-        </div>
-      </div>
+      <SidebarProvider>
+        <SidebarInset>
+          <div className="min-h-screen flex items-center justify-center bg-background">
+            <div className="text-center">
+              <Card className="p-8 max-w-md mx-4">
+                <div className="bg-primary rounded-2xl w-16 h-16 flex items-center justify-center mx-auto mb-6">
+                  <Loader2 className="w-8 h-8 text-secondary animate-spin" />
+                </div>
+                <CardTitle className="text-2xl mb-3">Loading Campaign</CardTitle>
+                <p className="text-muted-foreground leading-relaxed">Processing your campaign data and establishing connection...</p>
+                <div className="mt-4 flex justify-center">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0s] mx-1" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.1s] mx-1" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s] mx-1" />
+                </div>
+              </Card>
+            </div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Campaign Info */}
-        {campaign && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {campaign.title}
-                <Badge variant={campaign.status === 'completed' ? 'default' : 'secondary'}>
-                  {campaign.status}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-3 gap-6">
-                {/* Campaign Details */}
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Campaign Details</h4>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="font-medium">Description:</span> {campaign.description}
-                    </div>
-                    <div>
-                      <span className="font-medium">Budget:</span> {campaign.totalBudgetInUSDC} USDC / {campaign.totalBudgetInEURC} EURC
-                    </div>
-                  </div>
+    <SidebarProvider>
+      {/* Custom Campaign Sidebar */}
+      <Sidebar>
+        <SidebarHeader className="bg-background border-b border-border">
+          <div className="p-4">
+            {/* Back to Dashboard Button - Moved to top */}
+            <div className="rounded-xl border border-border mb-8 overflow-hidden">
+              <Button 
+              onClick={() => router.push('/dashboard')} 
+              variant="ghost" 
+              className="w-full justify-start hover:bg-muted/80 p-3 h-auto"
+              size="sm"
+              >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              <span className="text-sm font-medium">Back to Dashboard</span>
+              </Button>
+            </div>
+
+            {/* Agent Header */}
+            <div className="flex items-center space-x-1">
+              <div className="relative">
+                <div className="bg-primary rounded-xl p-2">
+                  <Bot className="w-5 h-5 text-secondary" />
                 </div>
-                
-                {/* Target Criteria */}
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Target Criteria</h4>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-xs font-medium text-muted-foreground mb-1 block">Skills:</span>
-                      <div className="flex flex-wrap gap-1">
-                        {campaign.targetSkills.map((skill, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-xs font-medium text-muted-foreground mb-1 block">Tools:</span>
-                      <div className="flex flex-wrap gap-1">
-                        {campaign.selectedTools.map((tool, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {tool}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-background animate-pulse"></div>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">Outreach Agent</h1>
+                <p className="text-sm text-muted-foreground">AI-powered automation</p>
+              </div>
+            </div>
+          </div>
+        </SidebarHeader>
+
+        <SidebarContent className="bg-background px-4 py-6 space-y-4">
+          {/* Quick Actions */}
+          <SidebarGroup>
+            <h3 className="text-sm font-bold text-foreground mb-4 flex items-center">
+              <Sparkles className="w-4 h-4 mr-2 text-primary" />
+              Quick Actions
+            </h3>
+            <div className="space-y-3">
+              <Button
+                onClick={startNewSession}
+                disabled={waitingForInput}
+                className="w-full justify-start h-10 mb-3"
+                size="sm"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Restart Session
+              </Button>
+              <Button
+                onClick={endSession}
+                disabled={!isConnected}
+                variant="destructive"
+                className="w-full justify-start h-10"
+                size="sm"
+              >
+                <Square className="w-4 h-4 mr-2" />
+                End Session
+              </Button>
+            </div>
+          </SidebarGroup>
+
+          {/* Campaign Info */}
+          {campaign && (
+            <SidebarGroup>
+              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center">
+                <Target className="w-4 h-4 mr-2 text-primary" />
+                Campaign Details
+              </h3>
+              <Card className="bg-muted/30 border-border">
+                <CardContent className="p-4 space-y-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Title</div>
+                    <div className="text-sm font-semibold text-foreground leading-tight">{campaign.title}</div>
                   </div>
-                </div>
-                
-                {/* Progress Stats */}
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Progress</h4>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">{actualContacts.length}</div>
-                      <div className="text-xs text-muted-foreground">Contacts Found</div>
+                    <div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Status</div>
+                      <Badge 
+                        variant={campaign.status === 'completed' ? 'default' : 'secondary'} 
+                        className="text-xs px-2 py-1"
+                      >
+                        {campaign.status}
+                      </Badge>
                     </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">
-                        {actualContacts.filter(contact => contact.contacted).length}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Contacted</div>
+                    <div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Budget</div>
+                      <div className="text-sm font-bold text-foreground">{campaign.totalBudgetInUSDC} USDC</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <span className="text-muted-foreground">
-                      {isConnected ? 'AI Connected' : 'AI Disconnected'}
+                  <div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Contacts Found</div>
+                    <div className="flex items-center space-x-2">
+                      <div className="text-lg font-bold text-primary">{actualContacts.length}</div>
+                      <Users className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </SidebarGroup>
+          )}
+
+          {/* Session Summary */}
+          {summaryData && (
+            <SidebarGroup>
+              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center">
+                <TrendingUp className="w-4 h-4 mr-2 text-primary" />
+                Session Analytics
+              </h3>
+              <Card className="bg-muted/30 border-border">
+                <CardContent className="p-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center p-3 bg-background/50 rounded-lg border border-border/50">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Candidates</div>
+                      <div className="text-xl font-bold text-primary">{summaryData.candidates_found || 0}</div>
+                    </div>
+                    <div className="text-center p-3 bg-background/50 rounded-lg border border-border/50">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Top Picks</div>
+                      <div className="text-xl font-bold text-primary">{summaryData.top_candidates || 0}</div>
+                    </div>
+                    <div className="text-center p-3 bg-background/50 rounded-lg border border-border/50">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Messages</div>
+                      <div className="text-xl font-bold text-primary">{summaryData.outreach_messages || 0}</div>
+                    </div>
+                    <div className="text-center p-3 bg-background/50 rounded-lg border border-border/50">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Meetings</div>
+                      <div className="text-xl font-bold text-primary">{summaryData.meetings_scheduled || 0}</div>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-border/50">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground flex items-center">
+                        <Zap className="w-3 h-3 mr-1" />
+                        Functions: {summaryData.function_calls || 0}
+                      </span>
+                      <span className="text-destructive flex items-center">
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                        Errors: {summaryData.errors || 0}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </SidebarGroup>
+          )}
+
+          {/* Additional Session Info */}
+          <SidebarGroup>
+            <h3 className="text-sm font-bold text-foreground mb-4 flex items-center">
+              <Brain className="w-4 h-4 mr-2 text-primary" />
+              Session Info
+            </h3>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-border mb-3 overflow-hidden p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground flex items-center">
+                      <Hash className="w-3 h-3 mr-2" />
+                      Session ID
+                    </span>
+                    <span className="font-mono text-xs bg-background/50 px-2 py-1 rounded border">
+                      {sessionId ? sessionId.substring(0, 8) + '...' : 'None'}
                     </span>
                   </div>
-                </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Execution Stream */}
-          <Card className="h-[550px] flex flex-col overflow-scroll">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                Execution Stream
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
-              <div className="flex-1 overflow-y-scroll space-y-3 mb-4">
-                {streamMessages.length === 0 && (
-                  <div className="text-center text-muted-foreground py-8">
-                    <div className="animate-pulse">
-                      <div className="h-3 w-3 bg-gray-400 rounded-full mx-auto mb-4"></div>
-                      <p>Waiting for AI to start processing...</p>
-                    </div>
+              <div className="rounded-xl border border-border mb-3 overflow-hidden p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground flex items-center">
+                      <MessageSquare className="w-3 h-3 mr-2" />
+                      Messages
+                    </span>
+                    <span className="text-sm font-semibold text-foreground">{streamMessages.length}</span>
                   </div>
-                )}
-                {streamMessages.map((message, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {getMessageIcon(message.type)}
-                    </div>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          {message.type.replace('_', ' ')}
-                        </span>
-                        <span className="text-xs text-muted-foreground/60">
-                          {new Date(message.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <div className="text-sm">
-                        <div className="break-anywhere overflow-hidden">
-                          <div className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                            {formatMessageContent(message.type, message.content)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
               </div>
-
-              {/* Input Field */}
               {waitingForInput && (
-                <div className="border-t pt-4">
-                  <div className="mb-2 text-sm font-medium">{currentInputPrompt}</div>
-                  <div className="flex gap-2">
-                    <Input
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      placeholder="Enter your response..."
-                      onKeyDown={(e) => e.key === 'Enter' && handleInputSubmit()}
-                    />
-                    <Button onClick={handleInputSubmit} size="sm">
-                      <Send className="h-4 w-4" />
-                    </Button>
+                <Card className="bg-primary/10 border-primary/20">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-primary flex items-center">
+                        <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                        Processing
+                      </span>
+                      <span className="text-xs font-medium text-primary">Working...</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="bg-background border-t border-border">
+          <div className="py-4 px-2">
+            {/* Connection Status */}
+            <div className="rounded-xl border border-border mb-6 overflow-hidden p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground flex items-center">
+                    <Activity className="w-4 h-4 mr-2" />
+                    Agent Status
+                  </span>
+                  <div className="flex items-center space-x-1">
+                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
+                    <span className="text-xs font-medium text-muted-foreground">{isConnected ? 'Connected' : 'Disconnected'}</span>
+                  </div>
+                </div>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">
+                Outreach AI • {new Date().getFullYear()}
+              </p>
+            </div>
+          </div>
+        </SidebarFooter>
+      </Sidebar>
+
+      <SidebarInset>
+        {/* <Header /> */}
+
+        {/* Main Chat Area */}
+        <div className="flex flex-1 flex-col">
+          {/* Chat Header */}
+          <div className="bg-background border-b border-border p-6">
+            <div className="flex items-center justify-between max-w-4xl mx-auto flex-row">
+                <h2 className="text-xl font-bold text-foreground flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-3" />
+                  {campaign?.title || 'Outreach Campaign'}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1 flex items-center">
+                  <Clock className="w-4 h-4 mr-2" />
+                  {waitingForInput ? 'Agent is processing your request...' : 'Chat with your AI outreach agent'}
+                </p>
+              {waitingForInput && (
+                <Card className="bg-muted border-border">
+                  <CardContent className="px-4 py-2 flex items-center space-x-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <span className="text-sm font-medium text-foreground">Processing</span>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto py-8 px-6">
+              {/* Debug Info - Remove in production */}
+              {/* {process.env.NODE_ENV === 'development' && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
+                  <div><strong>Debug Info:</strong></div>
+                  <div>Messages: {streamMessages.length}</div>
+                  <div>Connected: {isConnected ? 'Yes' : 'No'}</div>
+                  <div>Session ID: {sessionId ? sessionId.substring(0, 8) + '...' : 'None'}</div>
+                  <div>Waiting for Input: {waitingForInput ? 'Yes' : 'No'}</div>
+                  <div>Loading: {loading ? 'Yes' : 'No'}</div>
+                </div>
+              )} */}
+
+              {/* Empty state */}
+              {streamMessages.length === 0 && !waitingForInput && (
+                <div className="flex items-center justify-center h-full min-h-[60vh]">
+                  <div className="text-center">
+                    <div className="bg-primary rounded-2xl w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                      {isConnected ? (
+                        <Bot className="w-10 h-10 text-secondary" />
+                      ) : (
+                        <Loader2 className="w-10 h-10 text-secondary animate-spin" />
+                      )}
+                    </div>
+                    <h3 className="text-2xl font-bold text-foreground mb-3">
+                      {isConnected ? "Ready to Start" : "Connecting..."}
+                    </h3>
+                    <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
+                      {isConnected 
+                        ? "Your AI outreach agent is ready to help you find and connect with the right people. Start a conversation or wait for automatic processing."
+                        : "Establishing connection with your AI agent..."
+                      }
+                    </p>
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
 
-          {/* Contacts Found */}
-          <Card className="h-[550px] flex flex-col">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Summary Data
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto">
-              {renderSummaryData()}
-            </CardContent>
-          </Card>
-        </div>
+              {/* Messages */}
+              <div className="space-y-6">
+                {streamMessages.map((message, index) => (
+                  <div 
+                    key={index} 
+                    className={`flex ${message.type === 'user_message' ? 'justify-end' : 'justify-start'} opacity-100 transform translate-y-0 transition-all duration-300`}
+                    style={{animationDelay: `${index * 0.1}s`}}
+                  >
+                    <div className={`max-w-3xl ${message.type === 'user_message' ? 'order-2' : 'order-1'}`}>
+                      <Card className={`${
+                        message.type === 'user_message' 
+                          ? 'bg-primary text-secondary' 
+                          : 'bg-card text-card-foreground hover:shadow-md transition-shadow duration-200'
+                      }`}>
+                        <CardContent className="px-6 py-4">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                              message.type === 'user_message' 
+                                ? 'bg-primary-foreground/30' 
+                                : getMessageIconBg(message.type)
+                            }`}>
+                              {getMessageIcon(message.type)}
+                            </div>
+                            <div className="flex-1 flex items-center justify-between">
+                              <span className={`text-sm font-semibold ${
+                                message.type === 'user_message' ? 'text-secondary/80' : 'text-foreground'
+                              }`}>
+                                {getMessageLabel(message.type)}
+                              </span>
+                              <span className={`text-xs ${
+                                message.type === 'user_message' ? 'text-secondary/60' : 'text-muted-foreground'
+                              }`}>
+                                {formatTime(message.timestamp)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                            message.type === 'user_message' ? 'text-secondary' : 'text-foreground'
+                          }`}>
+                            {formatMessageContent(message.type, message.content)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                ))}
 
-        {/* Completion Actions */}
-        {executionComplete && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Campaign Execution Complete!</h3>
-                <p className="text-muted-foreground mb-4">
-                  Found {actualContacts.length} potential contacts for your outreach campaign.
-                </p>
-                <Button onClick={() => router.push('/dashboard')}>
-                  Return to Dashboard
-                </Button>
+                {/* Typing Indicator */}
+                {waitingForInput && (
+                  <div className="flex justify-start opacity-100 transform translate-y-0 transition-all duration-300">
+                    <div className="max-w-3xl">
+                      <Card className="bg-card text-card-foreground">
+                        <CardContent className="px-6 py-4">
+                          <div className="flex items-center space-x-4">
+                            <div className="bg-primary rounded-full p-2">
+                              <Coffee className="w-4 h-4 text-secondary animate-pulse" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-foreground mb-1">
+                                Agent is thinking...
+                              </div>
+                              {currentInputPrompt && (
+                                <div className="text-sm text-muted-foreground max-w-md">
+                                  {currentInputPrompt}
+                                </div>
+                              )}
+                              <div className="flex space-x-1 mt-2">
+                                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* Input Area */}
+          <div className="bg-background border-t border-border pt-4 pb-4">
+            <div className="max-w-4xl mx-auto px-6">
+              <form onSubmit={(e) => { e.preventDefault(); handleInputSubmit(); }}>
+                <div className="flex items-center space-x-3">
+                  <div className="flex-1 relative">
+                    <Input
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleInputSubmit();
+                        }
+                      }}
+                      placeholder={waitingForInput ? "Agent is processing..." : "Message your outreach agent..."}
+                      className="w-full h-14 px-6 text-sm resize-none transition-all duration-200 rounded-lg border-border bg-background"
+                      disabled={!isConnected}
+                    />
+                  </div>
+                  <Button 
+                    type="submit"
+                    className="h-14 w-14 p-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    disabled={!inputValue.trim() || !isConnected}
+                  >
+                    <Send className="w-5 h-5" />
+                  </Button>
+                </div>
+              </form>
+              <div className="mt-3 text-xs text-muted-foreground text-center flex items-center justify-center space-x-4">
+                <span className="flex items-center">
+                  <span className="w-4 h-4 mr-1">⏎</span>
+                  Send message
+                </span>
+                <span className="text-border">•</span>
+                <span className="flex items-center ">
+                  <span className="w-4 h-4 mr-4">⇧⏎</span>
+                  <span>New line</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Completion Message Overlay */}
+          {executionComplete && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+              <Card className="max-w-md mx-4 text-center">
+                <CardContent className="p-10">
+                  <div className="bg-primary rounded-2xl w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle className="h-10 w-10 text-secondary" />
+                  </div>
+                  <CardTitle className="text-2xl mb-3">Campaign Complete!</CardTitle>
+                  <p className="text-muted-foreground mb-8 leading-relaxed">
+                    Successfully found <span className="font-bold text-primary">{actualContacts.length}</span> potential contacts for your outreach campaign.
+                  </p>
+                  <Button 
+                    onClick={() => router.push('/dashboard')} 
+                    className="px-8 py-3 transition-all duration-200"
+                  >
+                    Return to Dashboard
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

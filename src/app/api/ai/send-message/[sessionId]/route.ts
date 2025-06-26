@@ -14,7 +14,7 @@ export async function POST(request: NextRequest, { params }: { params: { session
     }
 
     // Send message to Python AI app
-    const response = await fetch(`${process.env.PYTHON_AI_URL || 'http://localhost:5050'}/send_message`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_PYTHON_AI_URL || 'http://localhost:5050'}/send_message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -373,7 +373,7 @@ export default function NewCampaignPage() {
                         </FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="e.g., Q1 Lead Generation Campaign"
+                            placeholder="Search For Founders"
                             className="transition-all duration-200 focus:scale-[1.01] focus:border-lime-300"
                             {...field}
                           />

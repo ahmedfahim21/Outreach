@@ -50,10 +50,13 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen">
+   <div className="flex flex-col min-h-screen bg-background custom-scrollbar" style={{
+      scrollbarWidth: 'thin',
+      scrollbarColor: 'rgb(209,213,219) transparent'
+    }}>
 
       {/* Hero Section */}
-      <main className="flex-grow">
+      <main className="flex-grow custom-scrollbar">
         <section className="relative px-4 py-20 md:py-40 h-screen overflow-hidden text-white">
           <div className="absolute inset-0 bg-[url(/outreach-bg.png)] bg-cover bg-center blur-sm opacity-100" />
           <div className="absolute inset-0 bg-black/30 z-0" />
@@ -75,7 +78,7 @@ export default function LandingPage() {
             </p>
 
             <Link href="/get-started">
-              <Button className="text-lg px-16 group h-12">
+              <Button className="text-lg px-16 group h-12 bg-[rgb(179,224,31)] hover:bg-[rgb(179,224,31)]/90 text-black font-semibold">
                 Get Started
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Button>
@@ -95,10 +98,10 @@ export default function LandingPage() {
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {features.map((feature, index) => (
-                <Card key={index} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:border-primary/20">
+                <Card key={index} className="group hover:shadow-lg transition-all duration-300 border-border/50 hover:border-[rgb(179,224,31)]/50">
                   <CardHeader>
                     <div className="flex items-center gap-4">
-                      <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                      <div className="p-2 rounded-lg bg-[rgb(179,224,31)]/10 text-[rgb(179,224,31)] group-hover:bg-[rgb(179,224,31)] group-hover:text-black transition-colors">
                         {feature.icon}
                       </div>
                       <CardTitle className="text-xl">{feature.title}</CardTitle>
@@ -114,7 +117,7 @@ export default function LandingPage() {
         </section>
 
         {/* Built For Section */}
-        <section className="px-4 py-2 text-center">
+        <section className="px-4 py-20 bg-background text-center">
           <div className="max-w-4xl mx-auto">
             <h3 className="text-2xl font-semibold mb-4">Built For</h3>
             <p className="text-lg text-muted-foreground">
@@ -135,7 +138,7 @@ export default function LandingPage() {
        
 
         {/* CTA Section */}
-        <section className="px-4 py-20 w-full bg-white">
+        <section className="px-4 py-20 w-full bg-background">
           <div className="max-w-4xl mx-auto text-center">
             <Card className="shadow-none">
               <CardHeader className="pb-6">
@@ -150,13 +153,13 @@ export default function LandingPage() {
               <CardContent>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link href="/get-started">
-                    <Button size="lg" className="text-lg px-8 py-4 group">
+                    <Button size="lg" className="text-lg px-8 py-4 group bg-[rgb(179,224,31)] hover:bg-[rgb(179,224,31)]/90 text-black">
                       Get Started Now
                       <Zap className="ml-2 h-5 w-5 group-hover:scale-110 transition-transform" />
                     </Button>
                   </Link>
                   <Link href="/">
-                    <Button variant="outline" size="lg" className="text-lg px-8 py-4">
+                    <Button variant="outline" size="lg" className="text-lg px-8 py-4 border-[rgb(179,224,31)] text-[rgb(179,224,31)] hover:bg-[rgb(179,224,31)] hover:text-black">
                       Video Demo
                     </Button>
                   </Link>

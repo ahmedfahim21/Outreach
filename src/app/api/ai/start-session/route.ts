@@ -11,12 +11,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const response = await fetch(`${process.env.PYTHON_AI_URL || 'http://localhost:5050'}/start_session`, {
+    console.log("Starting AI session for campaignId:", campaignId);
+    console.log(`${process.env.NEXT_PUBLIC_NEXT_PUBLIC_PYTHON_AI_URL}/start_session`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_NEXT_PUBLIC_PYTHON_AI_URL}/start_session`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ campaignId })
     });
 
     if (!response.ok) {

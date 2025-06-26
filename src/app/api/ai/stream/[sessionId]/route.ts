@@ -11,7 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: { sessionI
       );
     }
 
-    const response = await fetch(`${process.env.PYTHON_AI_URL || 'http://localhost:5050'}/stream/${sessionId}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_PYTHON_AI_URL || 'http://localhost:5050'}/stream/${sessionId}`, {
       method: 'GET',
       headers: {
         'Accept': 'text/event-stream',

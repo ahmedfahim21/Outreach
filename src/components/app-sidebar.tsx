@@ -27,14 +27,6 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent className="bg-background">
-                <SidebarGroup className="h-6">
-                    {path && (
-                        <Link href="/dashboard" className="flex items-center text-secondary transition-colors mb-2 px-2 py-1 rounded-md hover:bg-secondary/10">
-                            <ChevronLeft className="w-4 h-4 mr-1" />
-                            <span className="text-sm font-medium">Back to Dashboard</span>
-                        </Link>
-                    )}
-                </SidebarGroup>
                 <SidebarGroup>
                     <Link href="/dashboard/campaign/new" className="w-full px-3">
                         <Button variant="secondary" className="h-12 w-full">
@@ -97,6 +89,14 @@ export function AppSidebar() {
                             Profile
                         </Button>
                     </Link>
+                </SidebarGroup>
+                  <SidebarGroup className="h-6">
+                    {path && (
+                        <Link href="/dashboard" className="p-4 flex items-center text-secondary rounded-xl border border-border transition-colors rounded-md hover:bg-secondary/10">
+                            <ChevronLeft className="w-4 h-4 mr-1" />
+                            <span className="text-sm font-medium">Back to Dashboard</span>
+                        </Link>
+                    )}
                 </SidebarGroup>
             </SidebarContent>
 
