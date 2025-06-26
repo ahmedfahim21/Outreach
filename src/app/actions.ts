@@ -45,7 +45,7 @@ export async function verifyPayment(payload: string, paymentAmount: string, toke
     resource: "https://example.com",
     description: "Payment for a service",
     mimeType: "text/html",
-    payTo: process.env.RESOURCE_WALLET_ADDRESS as string,
+    payTo: process.env.NEXT_PUBLIC_RESOURCE_WALLET_ADDRESS as string,
     maxTimeoutSeconds: 60,
     asset: assetAddress,
     outputSchema: undefined,

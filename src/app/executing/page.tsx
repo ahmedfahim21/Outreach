@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader, SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { Header } from "@/components/header";
 import { Loader2, Send, CheckCircle, AlertCircle, Users, MessageSquare, Play, BarChart3, Square, Trash2, Bot, Zap, Target, TrendingUp, Clock, Activity, Sparkles, ArrowLeft, Settings, Brain, Eye, FileText, Link, Hash, Coffee } from "lucide-react";
+import Image from "next/image";
 
 interface Campaign {
   id: string;
@@ -86,7 +87,6 @@ export default function ExecutingPage() {
   const [streamReady, setStreamReady] = useState(false);
   const [waitingForInput, setWaitingForInput] = useState(false);
   const [inputValue, setInputValue] = useState("");
-  const [executionComplete, setExecutionComplete] = useState(false);
   const [currentInputPrompt, setCurrentInputPrompt] = useState("");
   const [pendingInitialMessage, setPendingInitialMessage] = useState<string | null>(null);
   const [actualContacts, setActualContacts] = useState<Contact[]>([]);
@@ -109,14 +109,18 @@ export default function ExecutingPage() {
   // Memoized sendMessage function to avoid stale closures
   const sendMessage = useCallback(async (message: string) => {
     const currentSessionId = sessionIdRef.current;
-    console.log('sendMessage called with sessionId from ref:', sessionIdRef.current);
+    console.log('📤 sendMessage called:', {
+      sessionIdFromRef: currentSessionId,
+      messagePreview: message.substring(0, 50) + '...',
+      messageLength: message.length
+    });
     
     if (!currentSessionId) {
-      console.error('Cannot send message: No session ID available');
+      console.error('❌ Cannot send message: No session ID available');
       return false;
     }
 
-    console.log('Sending message to session:', currentSessionId, 'Message preview:', message.substring(0, 100) + '...');
+    console.log('📡 Making POST request to send message...');
 
     try {
       const response = await fetch(`/api/ai/send-message/${currentSessionId}`, {
@@ -127,11 +131,20 @@ export default function ExecutingPage() {
         body: JSON.stringify({ message })
       });
 
+      console.log('📡 Send message response status:', response.status);
+      
       const result = await response.json();
-      console.log('Send message result:', result);
+      console.log('📊 Send message result:', result);
+      
+      if (result.success) {
+        console.log('✅ Message sent successfully');
+      } else {
+        console.error('❌ Message send failed:', result);
+      }
+      
       return result.success;
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('💥 Error sending message:', error);
       return false;
     }
   }, []);
@@ -214,115 +227,166 @@ export default function ExecutingPage() {
   }, [campaign?.id, fetchContactsFromDB]);
 
   const handleStreamMessage = useCallback(async (message: StreamMessage) => {
+    console.log('📨 handleStreamMessage called with:', message.type, message);
+    
     if (message.type === 'heartbeat' || message.type === 'connected') {
+      console.log('💗 Skipping heartbeat/connected message');
       return;
     }
 
+    console.log('📝 Adding message to stream:', message.type);
     // Use functional state update to avoid stale state issues
-    setStreamMessages(prev => [...prev, message]);
+    setStreamMessages(prev => {
+      console.log('📊 Current messages count:', prev.length, '-> Adding 1 more');
+      return [...prev, message];
+    });
 
+    console.log('🔄 Processing message type:', message.type);
     switch (message.type) {
       case 'input_request':
+        console.log('❓ Input request received:', message.content);
         setWaitingForInput(true);
         setCurrentInputPrompt(typeof message.content === 'string' ? message.content : '');
         break;
 
       case 'completion':
-        setExecutionComplete(true);
+        console.log('✅ Completion message received');
         await markCampaignComplete();
         break;
         
       case 'function_result':
+        console.log('🔧 Function result received, checking for scored_candidates...');
         // Check if this function result contains scored_candidates
         if (typeof message.content === 'object' && message.content !== null) {
           const contentObj = message.content as { scored_candidates?: ScoredCandidate[] };
           if (contentObj.scored_candidates && Array.isArray(contentObj.scored_candidates)) {
-            console.log('Found scored candidates in function result:', contentObj.scored_candidates.length);
+            console.log('🎯 Found scored candidates in function result:', contentObj.scored_candidates.length);
             await saveContactsToDatabase(contentObj.scored_candidates);
+          } else {
+            console.log('🔍 No scored_candidates found in function result');
           }
         }
 
         const currentSessionId = sessionIdRef.current || message.session_id;
         if (currentSessionId) {
-          console.log('Fetching summary for session:', currentSessionId);
+          console.log('📊 Fetching summary for session:', currentSessionId);
           try {
             const summaryResponse = await fetch(`/api/ai/get-summary/${currentSessionId}`);
             const summaryResult = await summaryResponse.json();
+            console.log('📊 Summary fetch result:', summaryResult);
             if (summaryResult.success) {
-                console.log('Summary fetched successfully:', summaryResult.message);
+              console.log('✅ Summary fetched successfully:', summaryResult.message);
               setSummaryData(summaryResult.message);
             }
           } catch (error) {
-            console.error('Error fetching summary:', error);
+            console.error('💥 Error fetching summary:', error);
           }
         } else {
-          console.warn('Cannot fetch summary: sessionId is null in ref and message');
+          console.warn('⚠️ Cannot fetch summary: sessionId is null in ref and message');
         }
         break;
         
       case 'error':
+        console.error('❌ Error message received:', message.content);
+        break;
+        
+      default:
+        console.log('📋 Other message type:', message.type);
         break;
     }
   }, [markCampaignComplete, saveContactsToDatabase]);
 
   const connectToStream = useCallback(async (sessionId: string) => {
+    console.log('🔌 connectToStream called with sessionId:', sessionId);
+    
     // Close existing connection if any
     if (eventSourceRef.current) {
+      console.log('🔌 Closing existing EventSource connection...');
       eventSourceRef.current.close();
     }
 
     try {
+      console.log('🔌 Creating new EventSource connection...');
       const eventSource = new EventSource(`/api/ai/stream/${sessionId}`);
       eventSourceRef.current = eventSource;
+      console.log('🔌 EventSource created, setting up handlers...');
 
       eventSource.onopen = () => {
+        console.log('✅ EventSource connection opened');
         setIsConnected(true);
-        console.log('Stream connected successfully');
       };
 
       eventSource.onmessage = (event) => {
+        console.log('📨 EventSource message received:', event.data);
+        
         try {
           const data = JSON.parse(event.data);
+          console.log('📊 Parsed message data:', data);
           
           // Handle connection confirmation
           if (data.type === 'connected') {
+            console.log('🤝 Stream connection confirmed');
             setIsConnected(true);
             setStreamReady(true);
-            console.log('Stream confirmed ready');
             return;
           }
           
           // Skip heartbeat messages but use them to maintain connection status
           if (data.type === 'heartbeat') {
+            console.log('💗 Heartbeat received');
             setIsConnected(true);
             return;
           }
           
+          console.log('📨 Processing stream message:', data.type);
           handleStreamMessage(data);
         } catch (error) {
-          console.error('Error parsing stream message:', error);
+          console.error('💥 Error parsing stream message:', error, 'Raw data:', event.data);
         }
       };
 
-      eventSource.onerror = () => {
+      eventSource.onerror = (error) => {
+        console.error('❌ EventSource error:', error);
         setIsConnected(false);
         eventSource.close();
       };
 
     } catch (error) {
-      console.error('Error connecting to stream:', error);
+      console.error('💥 Error connecting to stream:', error);
     }
   }, [handleStreamMessage]);
 
   // Effect to send initial message when stream is ready
   useEffect(() => {
+    console.log('🔄 Initial message effect triggered:', {
+      streamReady,
+      hasPendingMessage: !!pendingInitialMessage,
+      sessionIdFromRef: sessionIdRef.current
+    });
+    
     if (streamReady && pendingInitialMessage && sessionIdRef.current) {
-      console.log('Stream ready, sending pending initial message with sessionId:', sessionIdRef.current);
+      console.log('✅ Conditions met, sending pending initial message...');
+      console.log('📝 Message preview:', pendingInitialMessage.substring(0, 100) + '...');
+      
       sendMessage(pendingInitialMessage)
-        .then(() => {
-          setPendingInitialMessage(null);
+        .then((success) => {
+          console.log('📤 Initial message send result:', success);
+          if (success) {
+            console.log('✅ Initial message sent successfully, clearing pending message');
+            setPendingInitialMessage(null);
+          } else {
+            console.error('❌ Failed to send initial message');
+          }
         })
-        .catch(console.error);
+        .catch((error) => {
+          console.error('💥 Error sending initial message:', error);
+        });
+    } else {
+      console.log('⏸️ Not ready to send initial message yet:', {
+        streamReady,
+        hasPendingMessage: !!pendingInitialMessage,
+        sessionId: sessionIdRef.current
+      });
     }
   }, [streamReady, pendingInitialMessage, sendMessage]);
 
@@ -332,32 +396,49 @@ export default function ExecutingPage() {
 
   useEffect(() => {
     const fetchCampaignData = async () => {
+      console.log('🔄 Starting fetchCampaignData...');
+      
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const campaignIdFromUrl = urlParams.get('campaignId');
-        const campaignId = campaignIdFromUrl || sessionStorage.getItem('pendingCampaignId');
+        const campaignIdFromSession = sessionStorage.getItem('pendingCampaignId');
+        const campaignId = campaignIdFromUrl || campaignIdFromSession;
+        
+        console.log('📋 Campaign ID sources:', {
+          fromUrl: campaignIdFromUrl,
+          fromSession: campaignIdFromSession,
+          final: campaignId
+        });
         
         if (campaignId) {
-          // const response = await fetch(`/api/campaigns/${campaignId}`);
-          // const result = await response.json();
+          console.log('🚀 Fetching campaign data for ID:', campaignId);
           
-          // if (result.campaign) {
-            // setCampaign(result.campaign);
-            // sessionStorage.removeItem('pendingCampaignId');
-            // Start AI session with campaign data
-            // await startAISession(campaignId, result.campaign);
-          // } else {
-            // console.error('Campaign not found');
-            // router.push('/dashboard');
-          // }
+          const response = await fetch(`/api/campaigns/${campaignId}`);
+          console.log('📡 Campaign fetch response status:', response.status);
+          
+          const result = await response.json();
+          console.log('📊 Campaign fetch result:', result);
+          
+          if (result.campaign) {
+            console.log('✅ Campaign found, setting state:', result.campaign);
+            setCampaign(result.campaign);
+            sessionStorage.removeItem('pendingCampaignId');
+            
+            console.log('🤖 Starting AI session with campaign data...');
+            await startAISession(campaignId, result.campaign);
+          } else {
+            console.error('❌ Campaign not found in result');
+            router.push('/dashboard');
+          }
         } else {
-          // console.error('No campaign ID provided');
-          // router.push('/dashboard');
+          console.error('❌ No campaign ID provided');
+          router.push('/dashboard');
         }
       } catch (error) {
-        console.error('Error fetching campaign:', error);
+        console.error('💥 Error fetching campaign:', error);
         router.push('/paywall');
       } finally {
+        console.log('🏁 Setting loading to false');
         setLoading(false);
       }
     };
@@ -366,7 +447,11 @@ export default function ExecutingPage() {
   }, [router]);
 
   const startAISession = async (campaignId: string, campaignData: Campaign) => {
+    console.log('🤖 startAISession called with:', { campaignId, campaignTitle: campaignData.title });
+    
     try {
+      console.log('📡 Making request to /api/ai/start-session...');
+      
       const response = await fetch('/api/ai/start-session', {
         method: 'POST',
         headers: {
@@ -375,17 +460,20 @@ export default function ExecutingPage() {
         body: JSON.stringify({ campaignId })
       });
 
+      console.log('📡 AI session response status:', response.status);
+      
       const result = await response.json();
-      console.log('AI session start result:', result);
+      console.log('🔄 AI session start result:', result);
+      
       if (result.success) {
         const newSessionId = result.sessionId;
+        console.log('✅ AI session started successfully with ID:', newSessionId);
         
         // Update both state and ref immediately
         setSessionId(newSessionId);
         sessionIdRef.current = newSessionId;
+        console.log('📝 Updated sessionId state and ref to:', newSessionId);
 
-        console.log('AI session started with ID:', newSessionId);
-        
         // Wait a tiny bit for React to process the state update
         await new Promise(resolve => setTimeout(resolve, 10));
         
@@ -393,13 +481,17 @@ export default function ExecutingPage() {
         const initialMessage = `${campaignData.description}
           Looking for People with Skills: ${campaignData.targetSkills.join(', ')}
           With a budget of ${campaignData.totalBudgetInUSDC} USDC}`;
+        
+        console.log('💬 Prepared initial message (first 100 chars):', initialMessage.substring(0, 100) + '...');
                     
-        console.log('Setting pending initial message');
+        console.log('⏳ Setting pending initial message and connecting to stream...');
         setPendingInitialMessage(initialMessage);
         await connectToStream(newSessionId);
+      } else {
+        console.error('❌ AI session start failed:', result);
       }
     } catch (error) {
-      console.error('Error starting AI session:', error);
+      console.error('💥 Error starting AI session:', error);
     }
   };
 
@@ -444,22 +536,41 @@ export default function ExecutingPage() {
   };
 
   const startNewSession = async () => {
-    if (!campaign?.id) return;
+    console.log('🔄 startNewSession called');
     
+    if (!campaign?.id) {
+      console.error('❌ Cannot start new session: no campaign ID');
+      return;
+    }
+    
+    console.log('🚀 Starting new session for campaign:', campaign.id);
     try {
       await startAISession(campaign.id, campaign);
+      console.log('✅ New session started successfully');
     } catch (error) {
-      console.error('Error starting new session:', error);
+      console.error('💥 Error starting new session:', error);
     }
   };
 
   const handleInputSubmit = async () => {
-    if (!inputValue.trim() || !sessionIdRef.current) return;
+    console.log('📝 handleInputSubmit called:', {
+      inputValue: inputValue.trim(),
+      hasSessionId: !!sessionIdRef.current,
+      sessionId: sessionIdRef.current
+    });
+    
+    if (!inputValue.trim() || !sessionIdRef.current) {
+      console.warn('⚠️ Cannot submit: missing input or session ID');
+      return;
+    }
 
     const message = inputValue;
+    console.log('📤 Preparing to send message:', message.substring(0, 50) + '...');
+    
     setInputValue("");
     
     // Add user message to the chat immediately for better UX
+    console.log('📝 Adding user message to chat for immediate display');
     setStreamMessages(prev => [...prev, {
       type: 'user_message',
       content: message,
@@ -468,11 +579,14 @@ export default function ExecutingPage() {
 
     // If this was in response to an input request, clear the waiting state
     if (waitingForInput) {
+      console.log('✅ Clearing waitingForInput state');
       setWaitingForInput(false);
       setCurrentInputPrompt("");
     }
 
-    await sendMessage(message);
+    console.log('🚀 Sending message via sendMessage function...');
+    const success = await sendMessage(message);
+    console.log('📊 Message send completed with success:', success);
   };
 
   const getMessageIcon = (type: string) => {
@@ -670,11 +784,11 @@ export default function ExecutingPage() {
   return (
     <SidebarProvider>
       {/* Custom Campaign Sidebar */}
-      <Sidebar>
+      <Sidebar className="w-80">
         <SidebarHeader className="bg-background border-b border-border">
           <div className="p-4">
             {/* Back to Dashboard Button - Moved to top */}
-            <div className="rounded-xl border border-border mb-8 overflow-hidden">
+            <div className="rounded-xl border-2 border-border bg-muted/30 mb-8 overflow-hidden">
               <Button 
               onClick={() => router.push('/dashboard')} 
               variant="ghost" 
@@ -687,11 +801,9 @@ export default function ExecutingPage() {
             </div>
 
             {/* Agent Header */}
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-3">
               <div className="relative">
-                <div className="bg-primary rounded-xl p-2">
-                  <Bot className="w-5 h-5 text-secondary" />
-                </div>
+                  <Image src="/outreachAI.png" alt="Bot" width={50} height={50} className="rounded-2xl" />
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-background animate-pulse"></div>
               </div>
               <div>
@@ -737,10 +849,9 @@ export default function ExecutingPage() {
             <SidebarGroup>
               <h3 className="text-sm font-bold text-foreground mb-4 flex items-center">
                 <Target className="w-4 h-4 mr-2 text-primary" />
-                Campaign Details
+                Campaign Details 
               </h3>
-              <Card className="bg-muted/30 border-border">
-                <CardContent className="p-4 space-y-4">
+              <div className="rounded-xl border-2 border-border bg-muted/30 p-4 space-y-4">
                   <div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Title</div>
                     <div className="text-sm font-semibold text-foreground leading-tight">{campaign.title}</div>
@@ -767,8 +878,7 @@ export default function ExecutingPage() {
                       <Users className="w-4 h-4 text-muted-foreground" />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+              </div>
             </SidebarGroup>
           )}
 
@@ -779,22 +889,21 @@ export default function ExecutingPage() {
                 <TrendingUp className="w-4 h-4 mr-2 text-primary" />
                 Session Analytics
               </h3>
-              <Card className="bg-muted/30 border-border">
-                <CardContent className="p-4 space-y-4">
+              <div className="rounded-xl border-2 border-border bg-muted/30 p-4 space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center p-3 bg-background/50 rounded-lg border border-border/50">
+                    <div className="text-center p-3  rounded-lg border border-border/50">
                       <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Candidates</div>
                       <div className="text-xl font-bold text-primary">{summaryData.candidates_found || 0}</div>
                     </div>
-                    <div className="text-center p-3 bg-background/50 rounded-lg border border-border/50">
+                    <div className="text-center p-3 rounded-lg border border-border/50">
                       <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Top Picks</div>
                       <div className="text-xl font-bold text-primary">{summaryData.top_candidates || 0}</div>
                     </div>
-                    <div className="text-center p-3 bg-background/50 rounded-lg border border-border/50">
+                    <div className="text-center p-3 rounded-lg border border-border/50">
                       <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Messages</div>
                       <div className="text-xl font-bold text-primary">{summaryData.outreach_messages || 0}</div>
                     </div>
-                    <div className="text-center p-3 bg-background/50 rounded-lg border border-border/50">
+                    <div className="text-center p-3 rounded-lg border border-border/50">
                       <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Meetings</div>
                       <div className="text-xl font-bold text-primary">{summaryData.meetings_scheduled || 0}</div>
                     </div>
@@ -811,8 +920,7 @@ export default function ExecutingPage() {
                       </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+              </div>
             </SidebarGroup>
           )}
 
@@ -823,7 +931,7 @@ export default function ExecutingPage() {
               Session Info
             </h3>
             <div className="space-y-3">
-              <div className="rounded-xl border border-border mb-3 overflow-hidden p-4">
+              <div className="rounded-xl border-2 border-border bg-muted/30 mb-3 overflow-hidden p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground flex items-center">
                       <Hash className="w-3 h-3 mr-2" />
@@ -834,7 +942,7 @@ export default function ExecutingPage() {
                     </span>
                   </div>
               </div>
-              <div className="rounded-xl border border-border mb-3 overflow-hidden p-4">
+              <div className="rounded-xl border-2 border-border bg-muted/30 mb-3 overflow-hidden p-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground flex items-center">
                       <MessageSquare className="w-3 h-3 mr-2" />
@@ -863,7 +971,7 @@ export default function ExecutingPage() {
         <SidebarFooter className="bg-background border-t border-border">
           <div className="py-4 px-2">
             {/* Connection Status */}
-            <div className="rounded-xl border border-border mb-6 overflow-hidden p-4">
+            <div className="rounded-xl border-2 border-border bg-muted/30 mb-6 overflow-hidden p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-foreground flex items-center">
                     <Activity className="w-4 h-4 mr-2" />
@@ -888,9 +996,9 @@ export default function ExecutingPage() {
         {/* <Header /> */}
 
         {/* Main Chat Area */}
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col h-screen">
           {/* Chat Header */}
-          <div className="bg-background border-b border-border p-6">
+          <div className="bg-background border-b border-border p-6 flex-shrink-0">
             <div className="flex items-center justify-between max-w-4xl mx-auto flex-row">
                 <h2 className="text-xl font-bold text-foreground flex items-center">
                   <MessageSquare className="w-5 h-5 mr-3" />
@@ -913,18 +1021,7 @@ export default function ExecutingPage() {
 
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto">
-            <div className="max-w-4xl mx-auto py-8 px-6">
-              {/* Debug Info - Remove in production */}
-              {/* {process.env.NODE_ENV === 'development' && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
-                  <div><strong>Debug Info:</strong></div>
-                  <div>Messages: {streamMessages.length}</div>
-                  <div>Connected: {isConnected ? 'Yes' : 'No'}</div>
-                  <div>Session ID: {sessionId ? sessionId.substring(0, 8) + '...' : 'None'}</div>
-                  <div>Waiting for Input: {waitingForInput ? 'Yes' : 'No'}</div>
-                  <div>Loading: {loading ? 'Yes' : 'No'}</div>
-                </div>
-              )} */}
+            <div className="max-w-4xl mx-auto py-8 px-6 pb-32">
 
               {/* Empty state */}
               {streamMessages.length === 0 && !waitingForInput && (
@@ -951,75 +1048,92 @@ export default function ExecutingPage() {
               )}
 
               {/* Messages */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {streamMessages.map((message, index) => (
-                  <div 
-                    key={index} 
-                    className={`flex ${message.type === 'user_message' ? 'justify-end' : 'justify-start'} opacity-100 transform translate-y-0 transition-all duration-300`}
-                    style={{animationDelay: `${index * 0.1}s`}}
+                  <div
+                    key={index}
+                    className={`flex ${
+                      message.type === "user_message" ? "justify-end" : "justify-start"
+                    } transition-all duration-300`}
+                    style={{ animationDelay: `${index * 0.1}s` }}
                   >
-                    <div className={`max-w-3xl ${message.type === 'user_message' ? 'order-2' : 'order-1'}`}>
-                      <Card className={`${
-                        message.type === 'user_message' 
-                          ? 'bg-primary text-secondary' 
-                          : 'bg-card text-card-foreground hover:shadow-md transition-shadow duration-200'
-                      }`}>
-                        <CardContent className="px-6 py-4">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
-                              message.type === 'user_message' 
-                                ? 'bg-primary-foreground/30' 
-                                : getMessageIconBg(message.type)
-                            }`}>
-                              {getMessageIcon(message.type)}
+                    <div
+                      className={`max-w-2xl ${
+                        message.type === "user_message" ? "ml-16" : "mr-16"
+                      }`}
+                    >
+                      <div
+                        className={`rounded-2xl border-2 ${
+                          message.type === "user_message"
+                            ? "bg-white border-primary shadow-xl"
+                            : "bg-card text-card-foreground border-muted shadow-lg hover:shadow-xl transition-shadow duration-300"
+                        } transition-all duration-300`}
+                      >
+                        <div className="p-4">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <div
+                              className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${
+                                message.type === "user_message"
+                                  ? " text-primary-foreground"
+                                  : getMessageIconBg(message.type)
+                              }`}
+                            >
+                              {message.type === "user_message" ? (
+                                <Users className="h-4 w-4" />
+                              ) : (
+                                getMessageIcon(message.type)
+                              )}
                             </div>
                             <div className="flex-1 flex items-center justify-between">
-                              <span className={`text-sm font-semibold ${
-                                message.type === 'user_message' ? 'text-secondary/80' : 'text-foreground'
-                              }`}>
+                              <span
+                                className={`text-xl font-semibold ${
+                                  message.type === "user_message"
+                                    ? "text-primary"
+                                    : "text-foreground"
+                                }`}
+                              >
                                 {getMessageLabel(message.type)}
                               </span>
-                              <span className={`text-xs ${
-                                message.type === 'user_message' ? 'text-secondary/60' : 'text-muted-foreground'
-                              }`}>
+                              <span className="text-xs text-muted-foreground font-medium">
                                 {formatTime(message.timestamp)}
                               </span>
                             </div>
                           </div>
-                          <div className={`text-sm leading-relaxed whitespace-pre-wrap ${
-                            message.type === 'user_message' ? 'text-secondary' : 'text-foreground'
-                          }`}>
+                          <div
+                            className="text-base leading-relaxed whitespace-pre-wrap font-medium text-foreground"
+                          >
                             {formatMessageContent(message.type, message.content)}
                           </div>
-                        </CardContent>
-                      </Card>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
 
+
                 {/* Typing Indicator */}
                 {waitingForInput && (
                   <div className="flex justify-start opacity-100 transform translate-y-0 transition-all duration-300">
-                    <div className="max-w-3xl">
-                      <Card className="bg-card text-card-foreground">
-                        <CardContent className="px-6 py-4">
-                          <div className="flex items-center space-x-4">
-                            <div className="bg-primary rounded-full p-2">
-                              <Coffee className="w-4 h-4 text-secondary animate-pulse" />
+                    <div className="max-w-2xl mr-16">
+                      <Card className="bg-card text-card-foreground shadow-lg transition-all duration-300 hover:shadow-xl">
+                        <CardContent className="p-5">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-200 flex items-center justify-center shadow-sm">
+                              <Coffee className="w-4 h-4 text-purple-600 animate-pulse" />
                             </div>
                             <div>
-                              <div className="text-sm font-semibold text-foreground mb-1">
+                              <div className="text-sm font-bold text-foreground mb-2">
                                 Agent is thinking...
                               </div>
                               {currentInputPrompt && (
-                                <div className="text-sm text-muted-foreground max-w-md">
+                                <div className="text-sm text-muted-foreground max-w-md mb-3 font-medium">
                                   {currentInputPrompt}
                                 </div>
                               )}
-                              <div className="flex space-x-1 mt-2">
-                                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
-                                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                              <div className="flex space-x-1">
+                                <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                                <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
                               </div>
                             </div>
                           </div>
@@ -1033,8 +1147,8 @@ export default function ExecutingPage() {
             </div>
           </div>
 
-          {/* Input Area */}
-          <div className="bg-background border-t border-border pt-4 pb-4">
+          {/* Input Area - Fixed at bottom */}
+          <div className="bg-background border-t border-border pt-4 pb-4 flex-shrink-0 fixed bottom-0 right-0 left-80 z-10">
             <div className="max-w-4xl mx-auto px-6">
               <form onSubmit={(e) => { e.preventDefault(); handleInputSubmit(); }}>
                 <div className="flex items-center space-x-3">
@@ -1075,29 +1189,6 @@ export default function ExecutingPage() {
               </div>
             </div>
           </div>
-
-          {/* Completion Message Overlay */}
-          {executionComplete && (
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-              <Card className="max-w-md mx-4 text-center">
-                <CardContent className="p-10">
-                  <div className="bg-primary rounded-2xl w-20 h-20 flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle className="h-10 w-10 text-secondary" />
-                  </div>
-                  <CardTitle className="text-2xl mb-3">Campaign Complete!</CardTitle>
-                  <p className="text-muted-foreground mb-8 leading-relaxed">
-                    Successfully found <span className="font-bold text-primary">{actualContacts.length}</span> potential contacts for your outreach campaign.
-                  </p>
-                  <Button 
-                    onClick={() => router.push('/dashboard')} 
-                    className="px-8 py-3 transition-all duration-200"
-                  >
-                    Return to Dashboard
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          )}
         </div>
       </SidebarInset>
     </SidebarProvider>
