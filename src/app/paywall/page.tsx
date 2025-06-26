@@ -241,7 +241,7 @@ function PaymentForm({
             {campaignData && (
               <div className="p-3 bg-primary/10 border border-primary rounded-md">
                 <p className="text-sm text-secondary">
-                  <strong>Campaign:</strong> {campaignData.title}<br />
+                  <strong>Campaign:</strong> {campaignData.description}<br />
                 </p>
               </div>
             )}
