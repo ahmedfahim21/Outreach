@@ -12,8 +12,7 @@ export async function POST(request: NextRequest) {
       );
     }
     console.log("Starting AI session for campaignId:", campaignId);
-    console.log(`${process.env.NEXT_PUBLIC_NEXT_PUBLIC_PYTHON_AI_URL}/start_session`);
-    const response = await fetch(`${process.env.NEXT_PUBLIC_NEXT_PUBLIC_PYTHON_AI_URL}/start_session`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_PYTHON_AI_URL}/start_session`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
