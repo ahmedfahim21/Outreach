@@ -112,9 +112,9 @@ export default function CampaignsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
           {filteredCampaigns.map((campaign) => (
             <Card key={campaign.id} className="overflow-hidden hover:shadow-md transition-shadow">
-              <CardContent className="p-5">
+              <CardContent className="px-5">
                 <div className="flex justify-between items-start mb-3">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {new Date(campaign.updatedAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -122,18 +122,7 @@ export default function CampaignsPage() {
                 <h3 className="font-medium text-lg mb-1">{campaign.title}</h3>
                 <p className="text-sm text-muted-foreground mb-4">{campaign.description}</p>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Budget USDC</p>
-                    <p className="font-medium">${campaign.totalBudgetInUSDC}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Budget EURC</p>
-                    <p className="font-medium">€{campaign.totalBudgetInEURC}</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-1 mb-4">
+                <div className="flex flex-wrap gap-1">
                   {campaign.targetSkills.slice(0, 3).map((skill, index) => (
                     <Badge key={index} variant="secondary" className="text-xs">
                       {skill}
@@ -147,8 +136,7 @@ export default function CampaignsPage() {
                 </div>
 
                 <div className="flex justify-end gap-1">
-                  {/* <Link href={`/dashboard/campaign/${campaign.id}`}> */}
-                  <Link href={`/dashboard/campaign/1`}>
+                  <Link href={`/dashboard/campaign/${campaign.id}`}>
                     <Button variant="ghost" size="sm">
                       <Eye className="h-4 w-4" />
                     </Button>
