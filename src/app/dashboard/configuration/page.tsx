@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Search, Settings, CheckCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { id } from "zod/v4/locales";
+import Image from "next/image";
 
 interface ServiceConfig {
   id: string;
   name: string;
   description: string;
-  icon: React.ReactNode;
-  features: string[];
+  image: string;  
 }
 
 interface GoogleConnectionStatus {
@@ -25,21 +26,55 @@ interface GoogleConnectionStatus {
 export default function ConfigurationPage() {
   const { user } = useAuth();
   const [services] = useState<ServiceConfig[]>([
-    {
-      id: "gmail",
-      name: "Gmail",
-      description: "Connect your Gmail account to enable email outreach and management",
-      icon: <Mail className="w-8 h-8 text-red-500" />,
-      features: ["Send emails", "Read emails", "Email templates", "Bulk sending"]
-    },
-    {
-      id: "google-search",
-      name: "Google Search",
-      description: "Integrate Google Search to find prospect information and research",
-      icon: <Search className="w-8 h-8 text-blue-500" />,
-      features: ["Search prospects", "Research companies", "Find contact info", "Market insights"]
-    }
-  ]);
+  {
+    id: "google-search",
+    name: "Google Search & Scrape",
+    description: "Search Google and scrape website data",
+    image: "/logos/google.webp",
+  },
+  {
+    id: "youtube-scraper",
+    name: "YouTube Channel Scraper",
+    description: "Search and scrape YouTube channel data",
+    image: "/logos/youtube.png",
+  },
+  {
+    id: "content-generation",
+    name: "Generate Outreach Content",
+    description: "AI-powered personalized outreach content",
+    image: "/logos/bedrock.png",
+  },
+  {
+    id: "send-emails",
+    name: "Send Emails",
+    description: "Automated email sending",
+    image: "/logos/gmail.webp",
+  },
+  {
+    id: "email-followups",
+    name: "Follow Up on Emails",
+    description: "Automated email follow-ups",
+    image: "/logos/gmail.webp",
+  },
+  {
+    id: "meet",
+    name: "Google Meet",
+    description: "Schedule meetings",
+    image: "/logos/google-meet.webp",
+  },
+  {
+    id: "google-calendar",
+    name: "Google Calendar",
+    description: "Manage calendar events",
+    image: "/logos/google-calendar.png",
+  },
+  {
+    id: "negotiate-payments",
+    name: "Negotiate & Make Payments",
+    description: "AI-powered negotiation and payment processing",
+    image: "/logos/cdp.webp",
+  },
+]);
 
   const [googleStatus, setGoogleStatus] = useState<GoogleConnectionStatus>({
     connected: false
@@ -163,7 +198,11 @@ export default function ConfigurationPage() {
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    {service.icon}
+                    <Image
+                      src={service.image}
+                      alt={service.name}
+                      width={40}
+                      height={40}/>
                     <div>
                       <CardTitle className="text-xl">{service.name}</CardTitle>
                       <CardDescription className="mt-1">
@@ -173,72 +212,9 @@ export default function ConfigurationPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Features:</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {service.features.map((feature, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {feature}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
           ))}
         </div>
-
-        {/* Additional Configuration */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle>Additional Settings</CardTitle>
-            <CardDescription>
-              Configure advanced settings for your integrated services
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-3 border-b">
-                <div>
-                  <h4 className="font-medium">Email Sending Limits</h4>
-                  <p className="text-sm text-gray-600">
-                    Configure daily email sending limits to avoid hitting Gmail quotas
-                  </p>
-                </div>
-                <Button variant="outline" size="sm">
-                  Configure
-                </Button>
-              </div>
-              
-              <div className="flex items-center justify-between py-3 border-b">
-                <div>
-                  <h4 className="font-medium">Search Preferences</h4>
-                  <p className="text-sm text-gray-600">
-                    Set default search parameters and filters
-                  </p>
-                </div>
-                <Button variant="outline" size="sm">
-                  Configure
-                </Button>
-              </div>
-              
-              <div className="flex items-center justify-between py-3">
-                <div>
-                  <h4 className="font-medium">Data Privacy</h4>
-                  <p className="text-sm text-gray-600">
-                    Manage data retention and privacy settings
-                  </p>
-                </div>
-                <Button variant="outline" size="sm">
-                  Configure
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

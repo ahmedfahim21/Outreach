@@ -9,11 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {
-  Search,
-  Youtube,
   FileText,
-  Mail,
-  Calendar,
   DollarSign,
   Target,
   Zap,
@@ -29,6 +25,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 
 const USDC_EURC = 0.87;
@@ -38,7 +35,7 @@ const budgetTools = [
     id: "google-search",
     name: "Google Search & Scrape",
     description: "Search Google and scrape website data",
-    icon: Search,
+    image: "/logos/google.webp",
     priceInUSDC: 0.3,
     priceInEURC: USDC_EURC * 0.3,
     requiresGoogle: false
@@ -47,7 +44,7 @@ const budgetTools = [
     id: "youtube-scraper",
     name: "YouTube Channel Scraper",
     description: "Search and scrape YouTube channel data",
-    icon: Youtube,
+    image: "/logos/youtube.png",
     priceInUSDC: 0.4,
     priceInEURC: USDC_EURC * 0.4,
     requiresGoogle: false
@@ -56,7 +53,7 @@ const budgetTools = [
     id: "content-generation",
     name: "Generate Outreach Content",
     description: "AI-powered personalized outreach content",
-    icon: FileText,
+    image: "/logos/bedrock.png",
     priceInUSDC: 0.2,
     priceInEURC: USDC_EURC * 0.2,
     requiresGoogle: false
@@ -65,7 +62,7 @@ const budgetTools = [
     id: "send-emails",
     name: "Send Emails",
     description: "Automated email sending",
-    icon: Mail,
+    image: "/logos/gmail.webp",
     priceInUSDC: 0.3,
     priceInEURC: USDC_EURC * 0.3,
     requiresGoogle: true
@@ -74,7 +71,7 @@ const budgetTools = [
     id: "email-followups",
     name: "Follow Up on Emails",
     description: "Automated email follow-ups",
-    icon: RefreshCw,
+    image: "/logos/gmail.webp",
     priceInUSDC: 0.2,
     priceInEURC: USDC_EURC * 0.2,
     dependsOn: "send-emails",
@@ -84,7 +81,7 @@ const budgetTools = [
     id: "meet-calendar",
     name: "Google Meet & Calendar",
     description: "Schedule meetings and manage calendar",
-    icon: Calendar,
+    image: "/logos/google-meet.webp",
     priceInUSDC: 0.4,
     priceInEURC: USDC_EURC * 0.4,
     requiresGoogle: true
@@ -93,7 +90,7 @@ const budgetTools = [
     id: "negotiate-payments",
     name: "Negotiate & Make Payments",
     description: "AI-powered negotiation and payment processing",
-    icon: DollarSign,
+    image: "/logos/cdp.webp",
     priceInUSDC: 0.5,
     priceInEURC: USDC_EURC * 0.5,
     requiresGoogle: false
@@ -578,7 +575,6 @@ export default function NewCampaignPage() {
                         <FormControl>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {budgetTools.map((tool, index) => {
-                              const IconComponent = tool.icon;
                               const isDisabled = tool.dependsOn && !field.value.includes(tool.dependsOn);
 
                               return (
@@ -603,7 +599,7 @@ export default function NewCampaignPage() {
                                   <div className="relative">
                                     <div className="flex items-center justify-between mb-4">
                                       <div className="flex items-center space-x-3">
-                                        <IconComponent className="h-5 w-5" style={{ color: "rgb(179,224,31)" }} />
+                                        <Image src={tool.image} alt={tool.name} width={24} height={24} />
                                         <h3 className="font-semibold text-base">{tool.name}</h3>
                                       </div>
                                       {field.value.includes(tool.id) && (
