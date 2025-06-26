@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { 
-  Search, 
-  Youtube, 
-  FileText, 
+import {
+  Search,
+  Youtube,
+  FileText,
   Mail,
   Calendar,
   DollarSign,
@@ -25,7 +25,7 @@ import {
   AlertCircle,
   ExternalLink
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { motion } from "framer-motion";
@@ -34,67 +34,67 @@ import { motion } from "framer-motion";
 const USDC_EURC = 0.87;
 
 const budgetTools = [
-  { 
-    id: "google-search", 
-    name: "Google Search & Scrape", 
+  {
+    id: "google-search",
+    name: "Google Search & Scrape",
     description: "Search Google and scrape website data",
     icon: Search,
-    priceInUSDC: 0.3, 
+    priceInUSDC: 0.3,
     priceInEURC: USDC_EURC * 0.3,
     requiresGoogle: false
   },
-  { 
-    id: "youtube-scraper", 
-    name: "YouTube Channel Scraper", 
+  {
+    id: "youtube-scraper",
+    name: "YouTube Channel Scraper",
     description: "Search and scrape YouTube channel data",
     icon: Youtube,
-    priceInUSDC: 0.4, 
+    priceInUSDC: 0.4,
     priceInEURC: USDC_EURC * 0.4,
     requiresGoogle: false
   },
-  { 
-    id: "content-generation", 
-    name: "Generate Outreach Content", 
+  {
+    id: "content-generation",
+    name: "Generate Outreach Content",
     description: "AI-powered personalized outreach content",
     icon: FileText,
-    priceInUSDC: 0.2, 
+    priceInUSDC: 0.2,
     priceInEURC: USDC_EURC * 0.2,
     requiresGoogle: false
   },
-  { 
-    id: "send-emails", 
-    name: "Send Emails", 
+  {
+    id: "send-emails",
+    name: "Send Emails",
     description: "Automated email sending",
     icon: Mail,
-    priceInUSDC: 0.3, 
+    priceInUSDC: 0.3,
     priceInEURC: USDC_EURC * 0.3,
     requiresGoogle: true
   },
-  { 
-    id: "email-followups", 
-    name: "Follow Up on Emails", 
+  {
+    id: "email-followups",
+    name: "Follow Up on Emails",
     description: "Automated email follow-ups",
     icon: RefreshCw,
-    priceInUSDC: 0.2, 
+    priceInUSDC: 0.2,
     priceInEURC: USDC_EURC * 0.2,
     dependsOn: "send-emails",
     requiresGoogle: true
   },
-  { 
-    id: "meet-calendar", 
-    name: "Google Meet & Calendar", 
+  {
+    id: "meet-calendar",
+    name: "Google Meet & Calendar",
     description: "Schedule meetings and manage calendar",
     icon: Calendar,
-    priceInUSDC: 0.4, 
+    priceInUSDC: 0.4,
     priceInEURC: USDC_EURC * 0.4,
     requiresGoogle: true
   },
-  { 
-    id: "negotiate-payments", 
-    name: "Negotiate & Make Payments", 
+  {
+    id: "negotiate-payments",
+    name: "Negotiate & Make Payments",
     description: "AI-powered negotiation and payment processing",
     icon: DollarSign,
-    priceInUSDC: 0.5, 
+    priceInUSDC: 0.5,
     priceInEURC: USDC_EURC * 0.5,
     requiresGoogle: false
   },
@@ -136,10 +136,12 @@ const campaignFormSchema = z.object({
 export default function NewCampaignPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isGoogleConnected, setIsGoogleConnected] = useState(false); 
+  const [googleStatus, setGoogleStatus] = useState<{ connected: boolean; email?: string; name?: string }>({ connected: false });
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [checkingGoogleStatus, setCheckingGoogleStatus] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
-  
+
   const form = useForm<z.infer<typeof campaignFormSchema>>({
     resolver: zodResolver(campaignFormSchema),
     defaultValues: {
@@ -147,7 +149,7 @@ export default function NewCampaignPage() {
       campaignDescription: "",
       targetSkills: [],
       selectedTools: [],
-      totalBudgetForOutreach: 50, 
+      totalBudgetForOutreach: 50,
     },
   });
 
@@ -163,6 +165,34 @@ export default function NewCampaignPage() {
     return tool?.requiresGoogle;
   });
 
+  const isSubmitDisabled = isSubmitting || (needsGoogleConnection && !googleStatus.connected);
+
+  // Check Google status on component mount and when user changes
+  useEffect(() => {
+    if (user?.id) {
+      checkGoogleStatus();
+    }
+  }, [user?.id]);
+
+  // Re-check Google status when tools selection changes to include Google-required tools
+  useEffect(() => {
+    if (needsGoogleConnection && user?.id) {
+      checkGoogleStatus();
+    }
+  }, [needsGoogleConnection, user?.id]);
+
+  // Re-check Google status when component gains focus (user returns from auth)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (needsGoogleConnection && user?.id) {
+        checkGoogleStatus();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [needsGoogleConnection, user?.id]);
+
   const handleSkillToggle = (skill: string) => {
     const currentSkills = form.getValues("targetSkills");
     const newSkills = currentSkills.includes(skill)
@@ -174,7 +204,7 @@ export default function NewCampaignPage() {
   const handleToolToggle = (toolId: string) => {
     const currentTools = form.getValues("selectedTools");
     const tool = budgetTools.find(t => t.id === toolId);
-    
+
     if (currentTools.includes(toolId)) {
       const newTools = currentTools.filter(t => {
         const toolItem = budgetTools.find(bt => bt.id === t);
@@ -191,9 +221,47 @@ export default function NewCampaignPage() {
     }
   };
 
-  const handleGoogleConnect = () => {
-    // Redirect to your Google OAuth page
-    router.push('/auth/google-connect');
+  const checkGoogleStatus = async () => {
+    if (!user?.id) return;
+
+    setCheckingGoogleStatus(true);
+    try {
+      const response = await fetch(`/api/auth/google/status?userId=${user.id}`);
+      if (response.ok) {
+        const status = await response.json();
+        setGoogleStatus(status);
+      }
+    } catch (error) {
+      console.error('Failed to check Google status:', error);
+    } finally {
+      setCheckingGoogleStatus(false);
+    }
+  };
+
+  const handleGoogleConnect = async () => {
+    if (!user?.id) return;
+
+    setIsConnecting(true);
+    try {
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          feature: 'calendar'
+        })
+      });
+
+      if (response.ok) {
+        const { authUrl } = await response.json();
+        window.location.href = authUrl;
+      } else {
+        throw new Error('Failed to get auth URL');
+      }
+    } catch (error) {
+      console.error('Failed to initiate Google auth:', error);
+      setIsConnecting(false);
+    }
   };
 
   const handlePayment = async () => {
@@ -204,7 +272,7 @@ export default function NewCampaignPage() {
     // }
 
     const formData = form.getValues();
-    
+
     // Create campaign first
     setIsSubmitting(true);
     try {
@@ -256,21 +324,21 @@ export default function NewCampaignPage() {
     <div className="min-h-screen bg-background p-6 text-foreground max-w-6xl mx-auto">
       <div className="mx-auto space-y-8">
         {/* Enhanced Header */}
-        <motion.div 
+        <motion.div
           className="text-center space-y-6 py-8"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
-          <motion.h1 
-            className="text-4xl font-bold bg-gradient-to-r from-lime-400 to-lime-600 bg-clip-text text-transparent"
+          <motion.h1
+            className="text-4xl font-bold text-secondary"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
             Create New Campaign
           </motion.h1>
-          <motion.p 
+          <motion.p
             className="text-muted-foreground text-lg"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -287,67 +355,59 @@ export default function NewCampaignPage() {
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
             >
               <Card className="hover:shadow-lg transition-shadow border-lime-200/20">
                 <CardHeader>
                   <div className="flex items-center space-x-3">
-                    <motion.div
-                      whileHover={{ rotate: 10, scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                    >
-                      <TrendingUp className="h-6 w-6" style={{ color: "rgb(179,224,31)" }} />
-                    </motion.div>
+                    <TrendingUp className="h-6 w-6" style={{ color: "rgb(179,224,31)" }} />
                     <CardTitle className="text-xl">Campaign Details</CardTitle>
                   </div>
                   <CardDescription>Start your campaign by telling us what you want to achieve</CardDescription>
                 </CardHeader>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="campaignTitle"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center space-x-2 text-base">
-                        <FileText className="h-4 w-4" style={{ color: "rgb(179,224,31)" }} />
-                        <span>Campaign Title</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g., Q1 Lead Generation Campaign"
-                          className="transition-all duration-200 focus:scale-[1.01] focus:border-lime-300"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="campaignTitle"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center space-x-2 text-base">
+                          <FileText className="h-4 w-4" style={{ color: "rgb(179,224,31)" }} />
+                          <span>Campaign Title</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., Q1 Lead Generation Campaign"
+                            className="transition-all duration-200 focus:scale-[1.01] focus:border-lime-300"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="campaignDescription"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center space-x-2 text-base">
-                        <FileText className="h-4 w-4" style={{ color: "rgb(179,224,31)" }} />
-                        <span>Campaign Description</span>
-                      </FormLabel>
-                      <FormControl>
-                        <motion.textarea
-                          className="w-full p-4 border border-input rounded-lg text-foreground min-h-[120px] resize-none focus:outline-none focus:ring-2 transition-all duration-200 focus:scale-[1.01] focus:border-lime-300 focus:ring-lime-300/50"
-                          placeholder="Can you find me 5 startup founders in the fintech space who'll be interested to participate in my podcast?"
-                          whileFocus={{ scale: 1.02 }}
-                          transition={{ type: "spring", stiffness: 300 }}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+                  <FormField
+                    control={form.control}
+                    name="campaignDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center space-x-2 text-base">
+                          <FileText className="h-4 w-4" style={{ color: "rgb(179,224,31)" }} />
+                          <span>Campaign Description</span>
+                        </FormLabel>
+                        <FormControl>
+                          <motion.textarea
+                            className="w-full p-4 border border-input rounded-lg text-foreground min-h-[120px] resize-none focus:outline-none focus:ring-2 transition-all duration-200 focus:scale-[1.01] focus:border-lime-300 focus:ring-lime-300/50"
+                            placeholder="Can you find me 5 startup founders in the fintech space who'll be interested to participate in my podcast?"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
             </motion.div>
 
             {/* Enhanced Target Filters */}
@@ -355,17 +415,11 @@ export default function NewCampaignPage() {
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
-              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
             >
               <Card className="hover:shadow-lg transition-shadow border-lime-200/20">
                 <CardHeader>
                   <div className="flex items-center space-x-3">
-                    <motion.div
-                      whileHover={{ scale: 1.2, rotate: 15 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                    >
-                      <Target className="h-6 w-6" style={{ color: "rgb(179,224,31)" }} />
-                    </motion.div>
+                    <Target className="h-6 w-6" style={{ color: "rgb(179,224,31)" }} />
                     <CardTitle className="text-xl">Target Filters</CardTitle>
                   </div>
                   <CardDescription>Define your target audience and campaign parameters</CardDescription>
@@ -389,11 +443,10 @@ export default function NewCampaignPage() {
                               >
                                 <Badge
                                   variant={field.value.includes(skill.name) ? "default" : "outline"}
-                                  className={`cursor-pointer transition-all duration-200 px-4 py-2 text-sm ${
-                                    field.value.includes(skill.name) 
-                                      ? 'shadow-lg' 
+                                  className={`cursor-pointer transition-all duration-200 px-4 py-2 text-sm ${field.value.includes(skill.name)
+                                      ? 'shadow-lg'
                                       : 'hover:shadow-md border-lime-200 hover:border-lime-300'
-                                  }`}
+                                    }`}
                                   style={{
                                     backgroundColor: field.value.includes(skill.name) ? "rgb(179,224,31)" : undefined,
                                     color: field.value.includes(skill.name) ? "black" : undefined,
@@ -431,25 +484,72 @@ export default function NewCampaignPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.6 }}
-                whileHover={{ scale: 1.02 }}
               >
-                <Card className="border-amber-300/50" style={{ backgroundColor: "rgba(255,193,7,0.1)" }}>
+                <Card className={`border-amber-300/50 ${googleStatus.connected ? 'border-green-300/50' : ''}`}
+                  style={{ backgroundColor: googleStatus.connected ? "rgba(34,197,94,0.1)" : "rgba(255,193,7,0.1)" }}>
                   <CardContent className="p-6">
                     <div className="flex items-center space-x-3 mb-4">
-                          <AlertCircle className="h-5 w-5 text-amber-600" />
-                      <h3 className="text-amber-800 dark:text-amber-200 font-semibold text-lg">Google Account Required</h3>
+                      {checkingGoogleStatus ? (
+                        <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" />
+                      ) : googleStatus.connected ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-amber-600" />
+                      )}
+                      <h3 className={`font-semibold text-lg ${checkingGoogleStatus
+                          ? 'text-blue-800'
+                          : googleStatus.connected
+                            ? 'text-green-800'
+                            : 'text-amber-800'
+                        }`}>
+                        {checkingGoogleStatus
+                          ? 'Checking Google Account...'
+                          : googleStatus.connected
+                            ? 'Google Account Connected'
+                            : 'Google Account Required'}
+                      </h3>
                     </div>
-                    <p className="text-amber-700 dark:text-amber-300 mb-4">
-                      Some selected tools require Google account integration for email sending, calendar management, and follow-ups.
-                    </p>
-                      <Button
-                        type="button"
-                        onClick={handleGoogleConnect}
-                        className="bg-amber-500 hover:bg-amber-600 text-white transition-all duration-200"
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Connect Google Account
-                      </Button>
+
+                    {checkingGoogleStatus ? (
+                      <div className="space-y-2">
+                        <p className="text-blue-700">
+                          Verifying your Google account connection...
+                        </p>
+                      </div>
+                    ) : googleStatus.connected ? (
+                      <div className="space-y-2">
+                        <p className="text-green-700">
+                          Connected as: <span className="font-medium">{googleStatus.email}</span>
+                        </p>
+                        <p className="text-green-700text-sm">
+                          Your selected tools are ready to use with your Google account.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <p className="text-amber-700">
+                          Some selected tools require Google account integration for email sending, calendar management, and follow-ups.
+                        </p>
+                        <Button
+                          type="button"
+                          onClick={handleGoogleConnect}
+                          disabled={isConnecting}
+                          className="bg-amber-500 hover:bg-amber-600 text-white transition-all duration-200"
+                        >
+                          {isConnecting ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Connecting...
+                            </>
+                          ) : (
+                            <>
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Connect Google Account
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
@@ -460,164 +560,131 @@ export default function NewCampaignPage() {
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.8 }}
-              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
             >
-              <Card className="hover:shadow-lg transition-shadow border-lime-200/20">
+              <Card className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-center space-x-3">
-                    <motion.div
-                      whileHover={{ rotate: 180, scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                    >
-                      <Zap className="h-6 w-6" style={{ color: "rgb(179,224,31)" }} />
-                    </motion.div>
+                    <Zap className="h-6 w-6" style={{ color: "rgb(179,224,31)" }} />
                     <CardTitle className="text-xl">Budget & Tool Selection</CardTitle>
                   </div>
                   <CardDescription>Choose the tools and features for your campaign</CardDescription>
                 </CardHeader>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="selectedTools"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {budgetTools.map((tool, index) => {
-                            const IconComponent = tool.icon;
-                            const isDisabled = tool.dependsOn && !field.value.includes(tool.dependsOn);
-                            const requiresGoogleConnection = tool.requiresGoogle;
-                            
-                            return (
-                              <motion.div
-                                key={tool.id}
-                                initial={{ opacity: 0, y: 30 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.4, delay: index * 0.1 }}
-                                // whileHover={{ 
-                                //   scale: isDisabled ? 1 : 1.05, 
-                                //   y: isDisabled ? 0 : -5,
-                                //   transition: { duration: 0.2 }
-                                // }}
-                                whileTap={{ scale: isDisabled ? 1 : 0.98 }}
-                                className={`group relative p-6 border-2 rounded-xl cursor-pointer transition-all duration-300 ${
-                                  field.value.includes(tool.id)
-                                    ? 'shadow-lg'
-                                    : isDisabled
-                                    ? 'border-border/50 bg-muted/50 cursor-not-allowed opacity-50'
-                                    : 'border-border hover:border-lime-300/70'
-                                }`}
-                                style={{
-                                  borderColor: field.value.includes(tool.id) ? "rgb(179,224,31)" : undefined,
-                                  backgroundColor: field.value.includes(tool.id) ? "rgba(179,224,31,0.1)" : undefined
-                                }}
-                                onClick={() => !isDisabled && handleToolToggle(tool.id)}
-                              >
-                                <div className="relative">
-                                  <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center space-x-3">
-                                      <motion.div 
-                                        className="p-3 rounded-lg transition-all duration-200"
-                                        style={{ backgroundColor: "rgba(179,224,31,0.15)" }}
-                                        whileHover={{ rotate: 10, scale: 1.1 }}
-                                        transition={{ type: "spring", stiffness: 300 }}
-                                      >
-                                        <IconComponent className="h-5 w-5" style={{ color: "rgb(179,224,31)" }} />
-                                      </motion.div>
-                                      <h3 className="font-semibold text-base">{tool.name}</h3>
-                                    </div>
-                                    {field.value.includes(tool.id) && (
-                                      <motion.div
-                                        initial={{ scale: 0, rotate: -180 }}
-                                        animate={{ scale: 1, rotate: 0 }}
-                                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                      >
-                                        <CheckCircle2 className="h-5 w-5" style={{ color: "rgb(179,224,31)" }} />
-                                      </motion.div>
-                                    )}
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{tool.description}</p>
-                                  {tool.dependsOn && (
-                                    <div className="flex items-center space-x-2 mb-3">
-                                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "rgb(179,224,31)" }}></div>
-                                      <p className="text-xs font-medium" style={{ color: "rgb(179,224,31)" }}>
-                                        Requires: {budgetTools.find(t => t.id === tool.dependsOn)?.name}
-                                      </p>
-                                    </div>
-                                  )}
-                                  {tool.requiresGoogle && (
-                                    <div className="flex items-center space-x-2 mb-3">
-                                      <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                                        Requires Google Account
-                                      </p>
-                                    </div>
-                                  )}
-                                  <div className="flex space-x-3 mt-4">
-                                    <Badge 
-                                      className="px-3 py-1 text-sm font-medium"
-                                      style={{ 
-                                        backgroundColor: "rgba(59, 130, 246, 0.1)", 
-                                        color: "rgb(59, 130, 246)",
-                                        borderColor: "rgba(59, 130, 246, 0.3)"
-                                      }}
-                                    >
-                                      {tool.priceInUSDC.toFixed(2)} USDC
-                                    </Badge>
-                                    <span className="text-xs self-center text-muted-foreground font-medium m-0">or</span>
-                                    <Badge 
-                                      variant="outline" 
-                                      className="px-3 py-1 text-sm"
-                                    >
-                                      {tool.priceInEURC.toFixed(2)} EURC
-                                    </Badge>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            );
-                          })}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="selectedTools"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {budgetTools.map((tool, index) => {
+                              const IconComponent = tool.icon;
+                              const isDisabled = tool.dependsOn && !field.value.includes(tool.dependsOn);
 
-                {/* Enhanced Budget Display */}
-                <motion.div 
-                  className="p-6 rounded-xl border-2"
-                  style={{ 
-                    backgroundColor: "rgba(179,224,31,0.1)", 
-                    borderColor: "rgba(179,224,31,0.3)" 
-                  }}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.5, delay: 1.0 }}
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center space-x-3">
+                              return (
+                                <motion.div
+                                  key={tool.id}
+                                  initial={{ opacity: 0, y: 30 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.4, delay: index * 0.1 }}
+                                  whileTap={{ scale: isDisabled ? 1 : 0.98 }}
+                                  className={`group relative p-6 border-2 rounded-xl cursor-pointer transition-all duration-300 ${field.value.includes(tool.id)
+                                      ? 'shadow-lg'
+                                      : isDisabled
+                                        ? 'border-border/50 bg-muted/50 cursor-not-allowed opacity-50'
+                                        : 'border-border hover:border-lime-300/70'
+                                    }`}
+                                  style={{
+                                    borderColor: field.value.includes(tool.id) ? "rgb(179,224,31)" : undefined,
+                                    backgroundColor: field.value.includes(tool.id) ? "rgba(179,224,31,0.1)" : undefined
+                                  }}
+                                  onClick={() => !isDisabled && handleToolToggle(tool.id)}
+                                >
+                                  <div className="relative">
+                                    <div className="flex items-center justify-between mb-4">
+                                      <div className="flex items-center space-x-3">
+                                        <IconComponent className="h-5 w-5" style={{ color: "rgb(179,224,31)" }} />
+                                        <h3 className="font-semibold text-base">{tool.name}</h3>
+                                      </div>
+                                      {field.value.includes(tool.id) && (
+                                        <motion.div
+                                          initial={{ scale: 0, rotate: -180 }}
+                                          animate={{ scale: 1, rotate: 0 }}
+                                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                        >
+                                          <CheckCircle2 className="h-5 w-5" style={{ color: "rgb(179,224,31)" }} />
+                                        </motion.div>
+                                      )}
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{tool.description}</p>
+                                    {tool.dependsOn && (
+                                      <div className="flex items-center space-x-2 mb-3">
+                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "rgb(179,224,31)" }}></div>
+                                        <p className="text-xs font-medium" style={{ color: "rgb(179,224,31)" }}>
+                                          Requires: {budgetTools.find(t => t.id === tool.dependsOn)?.name}
+                                        </p>
+                                      </div>
+                                    )}
+                                    {tool.requiresGoogle && (
+                                      <div className="flex items-center space-x-2 mb-3">
+                                        <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                                        <p className="text-xs text-amber-600 font-medium">
+                                          Requires Google Account
+                                        </p>
+                                      </div>
+                                    )}
+                                    <div className="flex space-x-3 mt-4">
+                                      <Badge
+                                        className="px-3 py-1 text-sm font-medium bg-primary text-secondary"
+                                      >
+                                        {tool.priceInUSDC.toFixed(2)} USDC
+                                      </Badge>
+                                      <span className="text-xs self-center text-muted-foreground font-medium m-0">or</span>
+                                      <Badge
+                                        variant="outline"
+                                        className="px-3 py-1 text-sm"
+                                      >
+                                        {tool.priceInEURC.toFixed(2)} EURC
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Enhanced Budget Display */}
+                  <motion.div
+                    className="p-6 rounded-xl border-2"
+                    style={{
+                      backgroundColor: "rgba(179,224,31,0.1)",
+                      borderColor: "rgba(179,224,31,0.3)"
+                    }}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5, delay: 1.0 }}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-3">
                         <DollarSign className="h-5 w-5" style={{ color: "rgb(179,224,31)" }} />
-                      <span className="font-semibold text-lg">Total Budget Estimate:</span>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <motion.span 
-                        className="text-2xl font-bold" 
-                        style={{ color: "rgb(179,224,31)" }}
-                        animate={{ scale: [1, 1.05, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
+                        <span className="font-semibold text-lg">Total Budget Estimate:</span>
+                      </div>
+                      <div className="flex flex-col items-end">
                         {totalBudget.toFixed(2)} USDC
-                      </motion.span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs px-2 py-1 bg-muted rounded-full text-muted-foreground">OR</span>
-                        <span className="text-base font-medium text-blue-600 dark:text-blue-400">{(totalBudget * USDC_EURC).toFixed(2)} EURC</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs px-2 py-1 bg-muted rounded-full text-muted-foreground">OR</span>
+                          <span className="text-base font-medium text-secondary">{(totalBudget * USDC_EURC).toFixed(2)} EURC</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              </CardContent>
-            </Card>
+                  </motion.div>
+                </CardContent>
+              </Card>
             </motion.div>
 
             {/* Enhanced Outreach Budget Input */}
@@ -625,17 +692,11 @@ export default function NewCampaignPage() {
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 1.0 }}
-              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
             >
               <Card className="hover:shadow-lg transition-shadow border-lime-200/20">
                 <CardHeader>
                   <div className="flex items-center space-x-3">
-                    <motion.div
-                      whileHover={{ rotate: 15, scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                    >
-                      <DollarSign className="h-6 w-6" style={{ color: "rgb(179,224,31)" }} />
-                    </motion.div>
+                    <DollarSign className="h-6 w-6" style={{ color: "rgb(179,224,31)" }} />
                     <CardTitle className="text-xl">Outreach Budget</CardTitle>
                   </div>
                   <CardDescription>Set your budget for reaching out to potential contacts</CardDescription>
@@ -673,68 +734,58 @@ export default function NewCampaignPage() {
                       </FormItem>
                     )}
                   />
-                  
-                  <motion.div 
-                    className="flex items-center space-x-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800"
+
+                  <motion.div
+                    className="flex items-center space-x-3 p-4 rounded-lg bg-primary/10 border border-primary"
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.3 }}
                   >
-                    <Sparkles className="h-5 w-5 text-blue-500" />
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                    <Sparkles className="h-5 w-5 text-secondary" />
+                    <p className="text-sm text-secondary">
                       This budget is separate from tool costs and will be used specifically for payments to contacts.
                     </p>
                   </motion.div>
                 </CardContent>
               </Card>
             </motion.div>
-            
+
             {/* Enhanced Submit Button */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 1.2 }}
             >
-              <motion.div
-                whileHover={{ y: -5 }}
-                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+              <Button
+                type="submit"
+                variant="default"
+                size="lg"
+                className="relative px-10 py-6 text-xl font-semibold justify-center w-full h-16 overflow-hidden group transition-all duration-300"
+                disabled={isSubmitDisabled}
               >
-                <Button
-                  type="submit"
-                  variant="default"
-                  size="lg"
-                  className="relative px-10 py-6 text-xl font-semibold justify-center w-full h-16 overflow-hidden group transition-all duration-300 shadow-xl"
-                  style={{ 
-                    background: "linear-gradient(135deg, rgb(179,224,31) 0%, rgb(144,205,25) 50%, rgb(120,180,20) 100%)",
-                    color: "black"
-                  }}
-                  disabled={isSubmitting}
-                >
-                  <motion.div 
-                    className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20"
-                    initial={false}
-                    whileHover={{ opacity: 0.2 }}
-                    transition={{ duration: 0.3 }}
-                  />
-                  <div className="relative flex items-center space-x-3">
-                    {isSubmitting ? (
-                      <>
-                          <RefreshCw className="h-12 w-12" />
-                        <span>Creating Campaign...</span>
-                      </>
-                    ) : (
-                      <>
-                          <CreditCard className="h-12 w-12" />
-                        <span>Pay & Launch Campaign</span>
-                      </>
-                    )}
-                  </div>
-                </Button>
-              </motion.div>
+                <div className="relative flex items-center space-x-3">
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="h-12 w-12" />
+                      <span>Creating Campaign...</span>
+                    </>
+                  ) : needsGoogleConnection && !googleStatus.connected ? (
+                    <>
+                      <AlertCircle className="h-12 w-12" />
+                      <span>Connect Google Account Required</span>
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-12 w-12" />
+                      <span>Proceed to Pay & Launch Campaign</span>
+                    </>
+                  )}
+                </div>
+              </Button>
             </motion.div>
           </form>
         </Form>
-        
+
         {error && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -742,20 +793,20 @@ export default function NewCampaignPage() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.4 }}
           >
-            <motion.div 
-              className="p-6 bg-red-50 border-2 border-red-200 rounded-xl dark:bg-red-950 dark:border-red-800"
+            <motion.div
+              className="p-6 bg-red-50 border-2 border-red-200 rounded-xl"
               whileHover={{ scale: 1.02 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
               <div className="flex items-center justify-center space-x-3">
-                <motion.div 
-                  className="p-2 bg-red-100 rounded-full dark:bg-red-900"
+                <motion.div
+                  className="p-2 bg-red-100 rounded-full"
                   animate={{ rotate: [0, 10, -10, 0] }}
                   transition={{ duration: 0.5, repeat: 3 }}
                 >
-                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  <AlertCircle className="h-5 w-5 text-red-600 " />
                 </motion.div>
-                <p className="text-red-700 dark:text-red-300 font-medium">
+                <p className="text-red-700 font-medium">
                   Error creating campaign: {error}
                 </p>
               </div>
