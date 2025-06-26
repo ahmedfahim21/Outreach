@@ -8,17 +8,14 @@ export async function POST(request: NextRequest) {
             userId,
             title,
             description,
-            searchIntent,
-            customSearchIntent,
             targetSkills,
             selectedTools,
             totalBudgetInUSDC,
             totalBudgetInEURC,
-            autoNegotiation,
-            autoFollowups
+            totalBudgetForOutreach
         } = body;
 
-        if (!userId || !title || !description || !searchIntent || !targetSkills?.length || !selectedTools?.length) {
+        if (!userId || !title || !description || !targetSkills?.length || !selectedTools?.length || !totalBudgetForOutreach) {
             return NextResponse.json(
                 { error: "Missing required fields" },
                 { status: 400 }
@@ -30,14 +27,11 @@ export async function POST(request: NextRequest) {
                 userId,
                 title,
                 description,
-                searchIntent,
-                customSearchIntent,
                 targetSkills,
                 selectedTools,
                 totalBudgetInUSDC,
                 totalBudgetInEURC,
-                autoNegotiation: autoNegotiation || false,
-                autoFollowups: autoFollowups || false,
+                totalBudgetForOutreach,
                 isPaid: false
             }
         });

@@ -52,14 +52,6 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Head>
-        <title>OutreachAI – AI-Powered Autonomous Outreach Platform</title>
-        <meta name="description" content="Find the right people, generate messages, and close deals — powered by AI and x402 crypto payments." />
-        <meta property="og:image" content="/outreach-preview.png" />
-        <meta property="og:title" content="OutreachAI" />
-        <meta property="og:description" content="Autonomous agents for AI-powered people discovery and personalized outreach." />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </Head>
 
       {/* Hero Section */}
       <main className="flex-grow">

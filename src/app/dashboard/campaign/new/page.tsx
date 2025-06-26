@@ -9,10 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { 
-  Rocket, 
-  Users, 
-  Handshake, 
-  Settings, 
   Search, 
   Youtube, 
   FileText, 
@@ -34,26 +30,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { motion } from "framer-motion";
 
-const searchIntentTemplates = [
-  { 
-    id: "influencer", 
-    name: "Influencer Outreach", 
-    description: "Connect with industry influencers",
-    icon: Users,
-  },
-  { 
-    id: "partnership", 
-    name: "Partnership Building", 
-    description: "Establish business partnerships",
-    icon: Handshake,
-  },
-  { 
-    id: "custom", 
-    name: "Custom Template", 
-    description: "Create your own outreach strategy",
-    icon: Settings,
-  },
-];
 
 const USDC_EURC = 0.87;
 
@@ -140,10 +116,6 @@ const skillsOptions = [
 ];
 
 const campaignFormSchema = z.object({
-  searchIntent: z.string().min(1, {
-    message: "Please select a search intent template.",
-  }),
-  customSearchIntent: z.string().optional(),
   campaignTitle: z.string().min(2, {
     message: "Campaign title must be at least 2 characters.",
   }),
@@ -156,39 +128,26 @@ const campaignFormSchema = z.object({
   selectedTools: z.array(z.string()).min(1, {
     message: "Please select at least one tool.",
   }),
-  autoNegotiation: z.boolean(),
-  autoFollowups: z.boolean(),
-}).refine(
-  (data) => {
-    if (data.searchIntent === "custom") {
-      return data.customSearchIntent && data.customSearchIntent.length >= 10;
-    }
-    return true;
-  },
-  {
-    message: "Custom search intent must be at least 10 characters when using custom template.",
-    path: ["customSearchIntent"],
-  }
-);
+  totalBudgetForOutreach: z.number().min(50, {
+    message: "Total budget for outreach must be at least 50 USDC.",
+  }),
+});
 
 export default function NewCampaignPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isGoogleConnected, setIsGoogleConnected] = useState(false); // This should come from your auth context
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false); 
   const router = useRouter();
   const { user } = useAuth();
   
   const form = useForm<z.infer<typeof campaignFormSchema>>({
     resolver: zodResolver(campaignFormSchema),
     defaultValues: {
-      searchIntent: "influencer", // Change to avoid custom validation
-      customSearchIntent: "Default custom search intent for campaign", // Add valid default
-      campaignTitle: "Campaign Title",
+      campaignTitle: "",
       campaignDescription: "",
       targetSkills: [],
       selectedTools: [],
-      autoNegotiation: false,
-      autoFollowups: false,
+      totalBudgetForOutreach: 50, 
     },
   });
 
@@ -217,7 +176,6 @@ export default function NewCampaignPage() {
     const tool = budgetTools.find(t => t.id === toolId);
     
     if (currentTools.includes(toolId)) {
-      // Removing tool - also remove dependent tools
       const newTools = currentTools.filter(t => {
         const toolItem = budgetTools.find(bt => bt.id === t);
         return t !== toolId && toolItem?.dependsOn !== toolId;
@@ -255,14 +213,13 @@ export default function NewCampaignPage() {
 
       const campaignData = {
         userId,
-        title: "title",
+        title: formData.campaignTitle,
         description: formData.campaignDescription,
-        searchIntent: "searchIntent",
-        customSearchIntent: formData.customSearchIntent,
         targetSkills: formData.targetSkills,
         selectedTools: formData.selectedTools,
         totalBudgetInUSDC: totalBudget,
         totalBudgetInEURC: parseFloat((totalBudget * USDC_EURC).toFixed(2)),
+        totalBudgetForOutreach: formData.totalBudgetForOutreach,
       };
 
       const response = await fetch('/api/campaigns', {
@@ -296,8 +253,8 @@ export default function NewCampaignPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6 text-foreground">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background p-6 text-foreground max-w-6xl mx-auto">
+      <div className="mx-auto space-y-8">
         {/* Enhanced Header */}
         <motion.div 
           className="text-center space-y-6 py-8"
@@ -305,16 +262,6 @@ export default function NewCampaignPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
-          <motion.div 
-            className="flex items-center justify-center mb-4"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2, type: "spring", stiffness: 200 }}
-          >
-            <div className="p-4 rounded-full" style={{ backgroundColor: "rgba(179,224,31,0.1)" }}>
-                <Rocket className="h-10 w-10" style={{ color: "rgb(179,224,31)" }} />
-            </div>
-          </motion.div>
           <motion.h1 
             className="text-4xl font-bold bg-gradient-to-r from-lime-400 to-lime-600 bg-clip-text text-transparent"
             initial={{ opacity: 0, y: 20 }}
@@ -335,89 +282,6 @@ export default function NewCampaignPage() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            {/* Enhanced Search Intent Templates */}
-            {/* <Card className="animate-in slide-in-from-left-4 duration-500 hover:shadow-lg transition-shadow border-lime-200/20">
-              <CardHeader>
-                <div className="flex items-center space-x-3">
-                  <Target className="h-6 w-6" style={{ color: "rgb(179,224,31)" }} />
-                  <CardTitle className="text-xl">Choose Search Intent Template</CardTitle>
-                </div>
-                <CardDescription>Select a template that matches your outreach goals or create a custom one</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="searchIntent"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {searchIntentTemplates.map((template, index) => {
-                            const IconComponent = template.icon;
-                            return (
-                              <div
-                                key={template.id}
-                                className={`group relative p-6 border-2 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg animate-in slide-in-from-bottom-4 delay-${index * 100} ${
-                                  field.value === template.id
-                                    ? 'shadow-md'
-                                    : 'border-border hover:border-lime-300/50'
-                                }`}
-                                style={{
-                                  borderColor: field.value === template.id ? "rgb(179,224,31)" : undefined,
-                                  backgroundColor: field.value === template.id ? "rgba(179,224,31,0.1)" : undefined
-                                }}
-                                onClick={() => field.onChange(template.id)}
-                              >
-                                <div className="flex items-center space-x-3 mb-4">
-                                  <div 
-                                    className="p-3 rounded-lg"
-                                    style={{ backgroundColor: "rgba(179,224,31,0.15)" }}
-                                  >
-                                    <IconComponent className="h-5 w-5" style={{ color: "rgb(179,224,31)" }} />
-                                  </div>
-                                  {field.value === template.id && (
-                                    <CheckCircle2 className="h-5 w-5 animate-in zoom-in-50 duration-200" style={{ color: "rgb(179,224,31)" }} />
-                                  )}
-                                </div>
-                                <h3 className="font-semibold text-base mb-2">{template.name}</h3>
-                                <p className="text-sm text-muted-foreground">{template.description}</p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {watchedValues.searchIntent === 'custom' && (
-                  <div className="animate-in slide-in-from-top-4 duration-300">
-                    <FormField
-                      control={form.control}
-                      name="customSearchIntent"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center space-x-2 text-base">
-                            <Sparkles className="h-4 w-4" style={{ color: "rgb(179,224,31)" }} />
-                            <span>Describe your search intent</span>
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="e.g., Find startup founders in the fintech space for partnership opportunities..."
-                              className="transition-all duration-200 focus:scale-[1.01] focus:border-lime-300"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card> */}
-
             {/* Enhanced Campaign Details */}
             <motion.div
               initial={{ opacity: 0, x: 50 }}
@@ -439,7 +303,7 @@ export default function NewCampaignPage() {
                   <CardDescription>Start your campaign by telling us what you want to achieve</CardDescription>
                 </CardHeader>
               <CardContent className="space-y-6">
-                {/* <FormField
+                <FormField
                   control={form.control}
                   name="campaignTitle"
                   render={({ field }) => (
@@ -458,17 +322,17 @@ export default function NewCampaignPage() {
                       <FormMessage />
                     </FormItem>
                   )}
-                /> */}
+                />
 
                 <FormField
                   control={form.control}
                   name="campaignDescription"
                   render={({ field }) => (
                     <FormItem>
-                      {/* <FormLabel className="flex items-center space-x-2 text-base">
+                      <FormLabel className="flex items-center space-x-2 text-base">
                         <FileText className="h-4 w-4" style={{ color: "rgb(179,224,31)" }} />
                         <span>Campaign Description</span>
-                      </FormLabel> */}
+                      </FormLabel>
                       <FormControl>
                         <motion.textarea
                           className="w-full p-4 border border-input rounded-lg text-foreground min-h-[120px] resize-none focus:outline-none focus:ring-2 transition-all duration-200 focus:scale-[1.01] focus:border-lime-300 focus:ring-lime-300/50"
@@ -698,7 +562,7 @@ export default function NewCampaignPage() {
                                         borderColor: "rgba(59, 130, 246, 0.3)"
                                       }}
                                     >
-                                      {tool.priceInUSDC} USDC
+                                      {tool.priceInUSDC.toFixed(2)} USDC
                                     </Badge>
                                     <span className="text-xs self-center text-muted-foreground font-medium m-0">or</span>
                                     <Badge 
@@ -743,7 +607,7 @@ export default function NewCampaignPage() {
                         animate={{ scale: [1, 1.05, 1] }}
                         transition={{ duration: 2, repeat: Infinity }}
                       >
-                        {totalBudget} USDC
+                        {totalBudget.toFixed(2)} USDC
                       </motion.span>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs px-2 py-1 bg-muted rounded-full text-muted-foreground">OR</span>
@@ -754,6 +618,75 @@ export default function NewCampaignPage() {
                 </motion.div>
               </CardContent>
             </Card>
+            </motion.div>
+
+            {/* Enhanced Outreach Budget Input */}
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 1.0 }}
+              whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+            >
+              <Card className="hover:shadow-lg transition-shadow border-lime-200/20">
+                <CardHeader>
+                  <div className="flex items-center space-x-3">
+                    <motion.div
+                      whileHover={{ rotate: 15, scale: 1.1 }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                    >
+                      <DollarSign className="h-6 w-6" style={{ color: "rgb(179,224,31)" }} />
+                    </motion.div>
+                    <CardTitle className="text-xl">Outreach Budget</CardTitle>
+                  </div>
+                  <CardDescription>Set your budget for reaching out to potential contacts</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="totalBudgetForOutreach"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center space-x-2 text-base">
+                          <CreditCard className="h-4 w-4" style={{ color: "rgb(179,224,31)" }} />
+                          <span>Total Budget for Outreach (USDC)</span>
+                        </FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              min={50}
+                              className="pl-12 py-6 text-lg transition-all duration-200 focus:scale-[1.01] focus:border-lime-300"
+                              {...field}
+                              onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                              value={field.value}
+                            />
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                              <DollarSign className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          </div>
+                        </FormControl>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          This budget will be used for paying contacts, negotiating rates, and processing payments.
+                          <span className="font-medium"> Minimum 50 USDC required.</span>
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <motion.div 
+                    className="flex items-center space-x-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <Sparkles className="h-5 w-5 text-blue-500" />
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      This budget is separate from tool costs and will be used specifically for payments to contacts.
+                    </p>
+                  </motion.div>
+                </CardContent>
+              </Card>
             </motion.div>
             
             {/* Enhanced Submit Button */}
@@ -792,7 +725,7 @@ export default function NewCampaignPage() {
                     ) : (
                       <>
                           <CreditCard className="h-12 w-12" />
-                        <span>Pay {totalBudget} USDC & Launch Campaign</span>
+                        <span>Pay & Launch Campaign</span>
                       </>
                     )}
                   </div>

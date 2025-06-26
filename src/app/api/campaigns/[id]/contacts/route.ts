@@ -15,13 +15,12 @@ export async function GET(
       );
     }
 
-    // Fetch contacts for this campaign
     const contacts = await prisma.contact.findMany({
       where: {
         campaignId: campaignId
       },
       orderBy: {
-        ai_score: 'desc'  // Order by AI score descending
+        ai_score: 'desc'
       }
     });
 
