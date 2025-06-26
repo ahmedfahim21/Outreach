@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ASSET_ADDRESSES } from "@/lib/constants";
+import { USDC_EURC } from "../dashboard/campaign/new/page";
 
 interface CampaignData {
   id: string;
@@ -21,6 +22,7 @@ interface CampaignData {
   description: string;
   totalBudgetInUSDC: number;
   totalBudgetInEURC: number;
+  totalBudgetForOutreach: number;
   selectedTools: string[];
   targetSkills: string[];
   searchIntent: string;
@@ -241,7 +243,13 @@ function PaymentForm({
             {campaignData && (
               <div className="p-3 bg-primary/10 border border-primary rounded-md">
                 <p className="text-sm text-secondary">
-                  <strong>Campaign:</strong> {campaignData.description}<br />
+                  <strong>Campaign:</strong> {campaignData.title}<br />
+                </p>
+                <p className="text-sm text-secondary">
+                  <strong>Agent Funding Budget:</strong> {campaignData.totalBudgetForOutreach} USDC<br />
+                </p>
+                <p className="text-sm text-secondary">
+                  <strong>Total Budget:</strong> {campaignData.totalBudgetInUSDC} USDC / {campaignData.totalBudgetInEURC} EURC
                 </p>
               </div>
             )}
@@ -337,8 +345,8 @@ export default function Paywall() {
           if (result.campaign) {
             setCampaignData(result.campaign);
             // Store token precision amounts (10^6)
-            setAmountInUSDC((result.campaign.totalBudgetInUSDC * 1000000).toString());
-            setAmountInEURC((result.campaign.totalBudgetInEURC * 1000000).toString());
+            setAmountInUSDC((result.campaign.totalBudgetInUSDC * 1000000 + result.campaign.totalBudgetForOutreach * 100000).toString());
+            setAmountInEURC((result.campaign.totalBudgetInEURC * 1000000 + result.campaign.totalBudgetForOutreach * USDC_EURC * 100000).toString());
           } else {
             console.error('Campaign not found');
           }
@@ -402,7 +410,7 @@ export default function Paywall() {
       ? amountInUSDC : amountInEURC,
     resource: "/executing",
     description: campaignData
-      ? `Payment for Campaign: ${campaignData.title} - ${campaignData.totalBudgetInUSDC} USDC / ${campaignData.totalBudgetInEURC} EURC`
+      ? `Payment for Campaign: ${campaignData.title}`
       : "Access to Premium Content",
     mimeType: "text/html",
     payTo: process.env.NEXT_PUBLIC_RESOURCE_WALLET_ADDRESS as string,

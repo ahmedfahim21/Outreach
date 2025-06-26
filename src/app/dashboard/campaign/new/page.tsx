@@ -19,7 +19,7 @@ import {
   TrendingUp,
   CreditCard,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -28,7 +28,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 
 
-const USDC_EURC = 0.87;
+export const USDC_EURC = 0.87;
 
 const budgetTools = [
   {
@@ -125,8 +125,8 @@ const campaignFormSchema = z.object({
   selectedTools: z.array(z.string()).min(1, {
     message: "Please select at least one tool.",
   }),
-  totalBudgetForOutreach: z.number().min(50, {
-    message: "Total budget for outreach must be at least 50 USDC.",
+  totalBudgetForOutreach: z.number().min(0.5, {
+    message: "Total budget for outreach must be at least 0.5 USDC.",
   }),
 });
 
@@ -146,7 +146,7 @@ export default function NewCampaignPage() {
       campaignDescription: "",
       targetSkills: [],
       selectedTools: [],
-      totalBudgetForOutreach: 50,
+      totalBudgetForOutreach: 0.5,
     },
   });
 
@@ -441,8 +441,8 @@ export default function NewCampaignPage() {
                                 <Badge
                                   variant={field.value.includes(skill.name) ? "default" : "outline"}
                                   className={`cursor-pointer transition-all duration-200 px-4 py-2 text-sm ${field.value.includes(skill.name)
-                                      ? 'shadow-lg'
-                                      : 'hover:shadow-md border-lime-200 hover:border-lime-300'
+                                    ? 'shadow-lg'
+                                    : 'hover:shadow-md border-lime-200 hover:border-lime-300'
                                     }`}
                                   style={{
                                     backgroundColor: field.value.includes(skill.name) ? "rgb(179,224,31)" : undefined,
@@ -494,10 +494,10 @@ export default function NewCampaignPage() {
                         <AlertCircle className="h-5 w-5 text-amber-600" />
                       )}
                       <h3 className={`font-semibold text-lg ${checkingGoogleStatus
-                          ? 'text-blue-800'
-                          : googleStatus.connected
-                            ? 'text-green-800'
-                            : 'text-amber-800'
+                        ? 'text-blue-800'
+                        : googleStatus.connected
+                          ? 'text-green-800'
+                          : 'text-amber-800'
                         }`}>
                         {checkingGoogleStatus
                           ? 'Checking Google Account...'
@@ -585,10 +585,10 @@ export default function NewCampaignPage() {
                                   transition={{ duration: 0.4, delay: index * 0.1 }}
                                   whileTap={{ scale: isDisabled ? 1 : 0.98 }}
                                   className={`group relative p-6 border-2 rounded-xl cursor-pointer transition-all duration-300 ${field.value.includes(tool.id)
-                                      ? 'shadow-lg'
-                                      : isDisabled
-                                        ? 'border-border/50 bg-muted/50 cursor-not-allowed opacity-50'
-                                        : 'border-border hover:border-lime-300/70'
+                                    ? 'shadow-lg'
+                                    : isDisabled
+                                      ? 'border-border/50 bg-muted/50 cursor-not-allowed opacity-50'
+                                      : 'border-border hover:border-lime-300/70'
                                     }`}
                                   style={{
                                     borderColor: field.value.includes(tool.id) ? "rgb(179,224,31)" : undefined,
@@ -668,7 +668,7 @@ export default function NewCampaignPage() {
                     <div className="flex justify-between items-center">
                       <div className="flex items-center space-x-3">
                         <DollarSign className="h-5 w-5" style={{ color: "rgb(179,224,31)" }} />
-                        <span className="font-semibold text-lg">Total Budget Estimate:</span>
+                        <span className="font-semibold text-lg">Tool Budget Estimate:</span>
                       </div>
                       <div className="flex flex-col items-end">
                         {totalBudget.toFixed(2)} USDC
@@ -711,20 +711,19 @@ export default function NewCampaignPage() {
                           <div className="relative">
                             <Input
                               type="number"
-                              min={50}
-                              className="pl-12 py-6 text-lg transition-all duration-200 focus:scale-[1.01] focus:border-lime-300"
+                              min={0.5}
+                              step={0.01}
+                              className="px-4 py-6 text-lg transition-all duration-200 focus:scale-[1.01] focus:border-lime-300"
                               {...field}
                               onChange={(e) => field.onChange(parseFloat(e.target.value))}
                               value={field.value}
                             />
-                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                              <DollarSign className="h-5 w-5 text-muted-foreground" />
-                            </div>
                           </div>
                         </FormControl>
+                        <p className="text-sm text-muted-foreground mt-2">OR {(field.value * USDC_EURC).toFixed(2)} EURC</p>
                         <p className="text-sm text-muted-foreground mt-2">
                           This budget will be used for paying contacts, negotiating rates, and processing payments.
-                          <span className="font-medium"> Minimum 50 USDC required.</span>
+                          <span className="font-medium"> Minimum 0.5 USDC required.</span>
                         </p>
                         <FormMessage />
                       </FormItem>
