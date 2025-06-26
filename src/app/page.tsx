@@ -14,7 +14,6 @@ import {
   HammerIcon,
 } from "lucide-react";
 import Image from "next/image";
-import Head from "next/head";
 
 export default function LandingPage() {
   const features = [
@@ -115,7 +114,7 @@ export default function LandingPage() {
         </section>
 
         {/* Built For Section */}
-        <section className="px-4 py-20 bg-white text-center">
+        <section className="px-4 py-2 text-center">
           <div className="max-w-4xl mx-auto">
             <h3 className="text-2xl font-semibold mb-4">Built For</h3>
             <p className="text-lg text-muted-foreground">
@@ -124,14 +123,16 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Workflow Visual Placeholder */}
-        {/*
-        <section className="px-4 py-20 bg-white text-center">
-          <div className="max-w-5xl mx-auto">
-            <Image src="/workflow-diagram.png" width={1000} height={600} alt="Agent Workflow" className="mx-auto" />
+        
+        <section className="p-8 text-center">
+          <div className="max-w-5xl mx-auto justify-center flex flex-col items-center">
+            <Image src="/architecture.jpeg" width={1000} height={600} alt="Agent Workflow" className="mx-auto" />
+            <p className="text-sm text-muted-foreground mt-2">
+              Architecture Diagram: How OutreachAI connects AI agents, blockchain payments, and real-time analytics
+            </p>
           </div>
         </section>
-        */}
+       
 
         {/* CTA Section */}
         <section className="px-4 py-20 w-full bg-white">

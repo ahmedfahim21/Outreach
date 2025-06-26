@@ -5,6 +5,7 @@ interface ContactData {
     id: string;
     campaignId: string;
     name: string;
+    email?: string;
     role?: string;
     description?: string;
     ai_score?: number;
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
                         campaignId,
                         name: contact.name || 'Unknown',
                         role: contact.role || 'Unknown',
+                        email: contact.email || null,
                         description: contact.description || '',
                         ai_score: contact.ai_score || 0,
                         ai_strengths: contact.ai_strengths || [],
@@ -61,22 +63,9 @@ export async function POST(request: NextRequest) {
     }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
     try {
-        const { searchParams } = new URL(request.url);
-        const campaignId = searchParams.get('campaignId');
-
-        if (!campaignId) {
-            return NextResponse.json(
-                { error: "Campaign ID is required" },
-                { status: 400 }
-            );
-        }
-
         const contacts = await prisma.contact.findMany({
-            where: {
-                campaignId
-            },
             orderBy: {
                 ai_score: 'desc'
             }
