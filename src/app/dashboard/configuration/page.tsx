@@ -3,10 +3,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Mail, Search, Settings, CheckCircle, AlertCircle } from "lucide-react";
+import { Settings, CheckCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { id } from "zod/v4/locales";
 import Image from "next/image";
 
 interface ServiceConfig {

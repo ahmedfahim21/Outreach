@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft,
-  Pause,
-  Trash2,
   TrendingUp,
   Users,
   MessageSquare,
@@ -16,8 +14,7 @@ import {
   CheckCircle,
   AlertCircle,
   Mail,
-  Star,
-  Download
+  Star
 } from "lucide-react";
 import Link from "next/link";
 

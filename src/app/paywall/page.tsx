@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ASSET_ADDRESSES } from "@/lib/constants";
-import { USDC_EURC } from "../dashboard/campaign/new/page";
+const USDC_EURC = 0.87
 
 interface CampaignData {
   id: string;
@@ -48,6 +48,7 @@ function PaymentForm({
   const [token, setToken] = useState<"USDC" | "EURC">(paymentRequirements.extra?.name as "USDC" | "EURC" || "USDC");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  
 
   // Update payment amount when campaign data or token changes
   useEffect(() => {

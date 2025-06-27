@@ -4,11 +4,10 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader, SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { Header } from "@/components/header";
-import { Loader2, Send, CheckCircle, AlertCircle, Users, MessageSquare, Play, BarChart3, Square, Trash2, Bot, Zap, Target, TrendingUp, Clock, Activity, Sparkles, ArrowLeft, Settings, Brain, Eye, FileText, Link, Hash, Coffee } from "lucide-react";
+import { Loader2, Send, CheckCircle, AlertCircle, Users, MessageSquare, Play, Square, Bot, Zap, Target, TrendingUp, Clock, Activity, Sparkles, ArrowLeft, Settings, Brain, Eye, Hash } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -559,10 +558,6 @@ export default function ExecutingPage() {
     }
   };
 
-  const clearChat = () => {
-    setStreamMessages([]);
-    setSummaryData(null);
-  };
 
   const getSummary = async () => {
     console.log('📊 === STARTING SUMMARY FETCH PROCESS ===');
@@ -745,32 +740,6 @@ export default function ExecutingPage() {
         return <Settings className="h-4 w-4 text-gray-500" />;
       default:
         return <Activity className="h-4 w-4 text-gray-400" />;
-    }
-  };
-
-  const getMessageClass = (type: string) => {
-    const baseClass = "p-3 rounded-lg border-l-4 transition-all duration-300 ";
-    switch (type) {
-      case 'user_message':
-        return baseClass + "bg-blue-50 border-blue-400";
-      case 'agent_thought':
-        return baseClass + "bg-green-50 border-green-400";
-      case 'display_message':
-        return baseClass + "bg-purple-50 border-purple-400";
-      case 'function_call':
-        return baseClass + "bg-yellow-50 border-yellow-400";
-      case 'function_result':
-        return baseClass + "bg-cyan-50 border-cyan-400";
-      case 'input_request':
-        return baseClass + "bg-orange-50 border-orange-400";
-      case 'error':
-        return baseClass + "bg-red-50 border-red-400";
-      case 'system':
-        return baseClass + "bg-gray-50 border-gray-400";
-      case 'completion':
-        return baseClass + "bg-green-50 border-green-400";
-      default:
-        return baseClass + "bg-gray-50 border-gray-300";
     }
   };
 

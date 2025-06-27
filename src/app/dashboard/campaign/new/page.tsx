@@ -28,7 +28,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 
 
-export const USDC_EURC = 0.87;
+const USDC_EURC = 0.87;
 
 const budgetTools = [
   {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: {params: Promise<{ id: string }> }) {
   try {
     const { id: campaignId } = await params;
     const body = await request.json();
@@ -49,7 +49,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: {params: Promise<{ id: string }>}) {
   try {
     const { id: campaignId } = await params;
 

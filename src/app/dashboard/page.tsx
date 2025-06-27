@@ -10,13 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Plus, 
   TrendingUp, 
-  Users, 
-  MessageSquare, 
+  Users,
   DollarSign,
   Play,
   ArrowRight,
   Target,
-  Activity
 } from "lucide-react";
 import Link from "next/link";
 
@@ -139,14 +137,6 @@ export default function DashboardPage() {
     return null; // Will redirect in useRequireAuth hook
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high": return "text-red-700 bg-red-50 border-red-200";
-      case "medium": return "text-yellow-700 bg-yellow-50 border-yellow-200";
-      case "low": return "text-green-700 bg-green-50 border-green-200";
-      default: return "text-gray-700 bg-gray-50 border-gray-200";
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background p-6 text-secondary">

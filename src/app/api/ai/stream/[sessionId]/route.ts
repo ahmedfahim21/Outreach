@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: NextRequest, { params }: { params: { sessionId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
   try {
     const { sessionId } = await params;
 
