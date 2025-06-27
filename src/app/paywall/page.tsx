@@ -53,8 +53,8 @@ function PaymentForm({
   useEffect(() => {
     if (campaignData) {
       const newAmount = token === "USDC"
-        ? campaignData.totalBudgetInUSDC.toString()
-        : campaignData.totalBudgetInEURC.toString();
+        ? (campaignData.totalBudgetInUSDC + campaignData.totalBudgetForOutreach).toString()
+        : (campaignData.totalBudgetInEURC + campaignData.totalBudgetForOutreach * USDC_EURC).toString();
       setPaymentAmount(newAmount);
       const amountInTokenPrecision = (parseFloat(newAmount) * 1000000).toString();
       onPaymentAmountChange(amountInTokenPrecision);
@@ -345,8 +345,8 @@ export default function Paywall() {
           if (result.campaign) {
             setCampaignData(result.campaign);
             // Store token precision amounts (10^6)
-            setAmountInUSDC((result.campaign.totalBudgetInUSDC * 1000000 + result.campaign.totalBudgetForOutreach * 100000).toString());
-            setAmountInEURC((result.campaign.totalBudgetInEURC * 1000000 + result.campaign.totalBudgetForOutreach * USDC_EURC * 100000).toString());
+            setAmountInUSDC(((result.campaign.totalBudgetInUSDC + result.campaign.totalBudgetForOutreach) * 1000000).toString());
+            setAmountInEURC(((result.campaign.totalBudgetInEURC + result.campaign.totalBudgetForOutreach * USDC_EURC) * 1000000).toString());
           } else {
             console.error('Campaign not found');
           }
@@ -402,6 +402,8 @@ export default function Paywall() {
     : token === "USDC"
       ? ASSET_ADDRESSES.BASE_SEPOLIA.USDC
       : ASSET_ADDRESSES.BASE_SEPOLIA.EURC;
+
+  console.log(amountInUSDC, amountInEURC);
 
   const paymentRequirements: PaymentRequirements = {
     scheme: "exact",
