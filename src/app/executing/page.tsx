@@ -10,6 +10,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader, Si
 import { Header } from "@/components/header";
 import { Loader2, Send, CheckCircle, AlertCircle, Users, MessageSquare, Play, BarChart3, Square, Trash2, Bot, Zap, Target, TrendingUp, Clock, Activity, Sparkles, ArrowLeft, Settings, Brain, Eye, FileText, Link, Hash, Coffee } from "lucide-react";
 import Image from "next/image";
+import { useAuth } from "@/contexts/auth-context";
 
 interface Campaign {
   id: string;
@@ -69,15 +70,17 @@ interface ScoredCandidate {
 
 interface SummaryData {
   raw_user_query?: string;
-  candidates_found?: number;
-  top_candidates?: number;
-  outreach_messages?: number;
-  meetings_scheduled?: number;
+  budget_left?: number;
+  candidates?: any[];
+  scored_candidates?: any[];
+  outreach_messages?: any;
+  scheduled_meetings?: any[];
   errors?: number;
   function_calls?: number;
 }
 
 export default function ExecutingPage() {
+  const { user } = useAuth();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -251,11 +254,24 @@ export default function ExecutingPage() {
 
       case 'completion':
         console.log('✅ Completion message received');
+        setWaitingForInput(false);
+        setCurrentInputPrompt('');
         await markCampaignComplete();
+        
+        // Auto-fetch summary when campaign completes
+        console.log('📊 Auto-fetching summary after completion...');
+        setTimeout(async () => {
+          await getSummary();
+        }, 1000); // Small delay to ensure completion is processed
         break;
         
       case 'function_result':
         console.log('🔧 Function result received, checking for scored_candidates...');
+        // Clear waiting state when we get function results (unless it's an input request)
+        if (!currentInputPrompt) {
+          setWaitingForInput(false);
+        }
+        
         // Check if this function result contains scored_candidates
         if (typeof message.content === 'object' && message.content !== null) {
           const contentObj = message.content as { scored_candidates?: ScoredCandidate[] };
@@ -286,12 +302,26 @@ export default function ExecutingPage() {
         }
         break;
         
+      case 'display_message':
+      case 'agent_thought':
+        console.log('🤖 Agent message received, clearing waiting state');
+        setWaitingForInput(false);
+        setCurrentInputPrompt('');
+        break;
+        
       case 'error':
         console.error('❌ Error message received:', message.content);
+        setWaitingForInput(false);
+        setCurrentInputPrompt('');
         break;
         
       default:
         console.log('📋 Other message type:', message.type);
+        // For most other message types, clear waiting state
+        if (message.type !== 'function_call' && message.type !== 'agent_thinking') {
+          setWaitingForInput(false);
+          setCurrentInputPrompt('');
+        }
         break;
     }
   }, [markCampaignComplete, saveContactsToDatabase]);
@@ -328,6 +358,13 @@ export default function ExecutingPage() {
             console.log('🤝 Stream connection confirmed');
             setIsConnected(true);
             setStreamReady(true);
+            
+            // Try to fetch existing summary when connection is established
+            console.log('📊 Auto-fetching summary on connection...');
+            setTimeout(async () => {
+              await getSummary();
+            }, 2000); // Small delay to ensure connection is fully established
+            
             return;
           }
           
@@ -395,6 +432,7 @@ export default function ExecutingPage() {
   }, [streamMessages]);
 
   useEffect(() => {
+    console.log('🔄 ExecutingPage mounted, starting campaign data fetch...');
     const fetchCampaignData = async () => {
       console.log('🔄 Starting fetchCampaignData...');
       
@@ -474,14 +512,40 @@ export default function ExecutingPage() {
         sessionIdRef.current = newSessionId;
         console.log('📝 Updated sessionId state and ref to:', newSessionId);
 
+        // Fetch and save Google credentials after successful session start
+        console.log('🔐 Checking if user exists for Google credentials...');
+        console.log('🔐 User object:', user);
+        console.log('🔐 User ID:', user?.id);
+        console.log('🔐 User has Google account?:', !!(user as any)?.googleAccount);
+        
+        if (user?.id) {
+          // Check if user has Google account before attempting to fetch credentials
+          if ((user as any)?.googleAccount) {
+            console.log('🔐 ✅ User has Google account, calling fetchAndSaveGoogleCredentials...');
+            await fetchAndSaveGoogleCredentials(user.id.toString(), newSessionId);
+            console.log('🔐 fetchAndSaveGoogleCredentials call completed');
+          } else {
+            console.warn('🔐 ⚠️ User does not have Google account connected.');
+            console.warn('🔐 ⚠️ Skipping credential fetch. User needs to connect Google account first.');
+          }
+        } else {
+          console.error('🔐 ❌ No user ID available for Google credentials fetch');
+          console.error('🔐 ❌ User object:', user);
+        }
+
         // Wait a tiny bit for React to process the state update
         await new Promise(resolve => setTimeout(resolve, 10));
         
         // Prepare the initial message
         const initialMessage = `${campaignData.description}
           Looking for People with Skills: ${campaignData.targetSkills.join(', ')}
-          With a budget of ${campaignData.totalBudgetInUSDC} USDC}`;
-        
+          With a budget of ${campaignData.totalBudgetInUSDC} USDC}
+          My details:
+          Name: ${user?.name || 'Unknown'}
+          Email: ${user?.contactEmail || 'Unknown'}
+          Setup the budget first and then move to the next step.
+          `;
+
         console.log('💬 Prepared initial message (first 100 chars):', initialMessage.substring(0, 100) + '...');
                     
         console.log('⏳ Setting pending initial message and connecting to stream...');
@@ -501,23 +565,61 @@ export default function ExecutingPage() {
   };
 
   const getSummary = async () => {
-    if (!isConnected || !sessionIdRef.current) return;
+    console.log('📊 === STARTING SUMMARY FETCH PROCESS ===');
+    console.log('📊 Is connected:', isConnected);
+    console.log('📊 Session ID:', sessionIdRef.current);
+    
+    if (!isConnected || !sessionIdRef.current) {
+      console.warn('⚠️ Cannot fetch summary: not connected or no session ID');
+      return;
+    }
 
     try {
+      console.log('📊 Step 1: Fetching summary from API...');
       const summaryResponse = await fetch(`/api/ai/get-summary/${sessionIdRef.current}`);
+      
+      console.log('📊 Step 2: Summary response status:', summaryResponse.status);
+      
+      if (!summaryResponse.ok) {
+        console.error('❌ Summary fetch failed with status:', summaryResponse.status);
+        console.error('❌ Response:', await summaryResponse.text());
+        return;
+      }
+      
       const summaryResult = await summaryResponse.json();
+      console.log('📊 Step 3: Summary result:', summaryResult);
+      
       if (summaryResult.success) {
+        console.log('✅ Summary fetched successfully');
+        console.log('📊 Summary data details:', {
+          budgetLeft: summaryResult.message?.budget_left,
+          candidatesCount: summaryResult.message?.candidates?.length || 0,
+          scoredCandidatesCount: summaryResult.message?.scored_candidates?.length || 0,
+          scheduledMeetingsCount: summaryResult.message?.scheduled_meetings?.length || 0,
+          outreachMessages: summaryResult.message?.outreach_messages,
+          errors: summaryResult.message?.errors,
+          functionCalls: summaryResult.message?.function_calls
+        });
         setSummaryData(summaryResult.message);
+      } else {
+        console.error('❌ Summary fetch failed:', summaryResult.error || 'Unknown error');
       }
     } catch (error) {
-      console.error('Error getting summary:', error);
+      console.error('❌ Error getting summary:', error);
     }
+    
+    console.log('📊 === SUMMARY FETCH PROCESS COMPLETE ===');
   };
 
   const endSession = async () => {
     if (!isConnected || !sessionIdRef.current) return;
 
     try {
+      console.log('🔚 Ending session and fetching final summary...');
+      
+      // Fetch summary before ending the session
+      await getSummary();
+      
       await fetch(`/api/ai/end-session/${sessionIdRef.current}`, { method: 'POST' });
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
@@ -530,6 +632,8 @@ export default function ExecutingPage() {
         content: 'Session ended',
         timestamp: new Date().toISOString()
       }]);
+      
+      console.log('✅ Session ended successfully with final summary');
     } catch (error) {
       console.error('Error ending session:', error);
     }
@@ -556,18 +660,38 @@ export default function ExecutingPage() {
     console.log('📝 handleInputSubmit called:', {
       inputValue: inputValue.trim(),
       hasSessionId: !!sessionIdRef.current,
-      sessionId: sessionIdRef.current
+      sessionId: sessionIdRef.current,
+      isConnected,
+      waitingForInput
     });
     
-    if (!inputValue.trim() || !sessionIdRef.current) {
-      console.warn('⚠️ Cannot submit: missing input or session ID');
+    // Prevent submission if conditions aren't met
+    if (!inputValue.trim()) {
+      console.warn('⚠️ Cannot submit: empty input');
+      return;
+    }
+    
+    if (!sessionIdRef.current) {
+      console.warn('⚠️ Cannot submit: no session ID');
+      return;
+    }
+    
+    if (!isConnected) {
+      console.warn('⚠️ Cannot submit: not connected');
+      return;
+    }
+    
+    if (waitingForInput) {
+      console.warn('⚠️ Cannot submit: already waiting for input');
       return;
     }
 
     const message = inputValue;
     console.log('📤 Preparing to send message:', message.substring(0, 50) + '...');
     
+    // Clear input immediately and set waiting state
     setInputValue("");
+    setWaitingForInput(true);
     
     // Add user message to the chat immediately for better UX
     console.log('📝 Adding user message to chat for immediate display');
@@ -577,16 +701,21 @@ export default function ExecutingPage() {
       timestamp: new Date().toISOString()
     }]);
 
-    // If this was in response to an input request, clear the waiting state
-    if (waitingForInput) {
-      console.log('✅ Clearing waitingForInput state');
-      setWaitingForInput(false);
-      setCurrentInputPrompt("");
-    }
-
     console.log('🚀 Sending message via sendMessage function...');
-    const success = await sendMessage(message);
-    console.log('📊 Message send completed with success:', success);
+    try {
+      const success = await sendMessage(message);
+      console.log('📊 Message send completed with success:', success);
+      
+      if (!success) {
+        console.error('❌ Message send failed, reverting waiting state');
+        // If send failed, revert the waiting state
+        setWaitingForInput(false);
+      }
+      // Note: waitingForInput will be cleared when we receive a response from the agent
+    } catch (error) {
+      console.error('� Error in handleInputSubmit:', error);
+      setWaitingForInput(false);
+    }
   };
 
   const getMessageIcon = (type: string) => {
@@ -756,6 +885,111 @@ export default function ExecutingPage() {
     }
   };
 
+    // Function to fetch and save Google credentials
+  const fetchAndSaveGoogleCredentials = async (userId: string, session_id: string) => {
+    console.log('🔐 === STARTING GOOGLE CREDENTIALS FETCH PROCESS ===');
+    console.log('🔐 User ID:', userId);
+    console.log('🔐 User object:', user);
+    console.log('🔐 User wallet address:', user?.walletAddress);
+    
+    try {
+      console.log('🔐 Step 1: Fetching Google account data from database...');
+      
+      // Fetch Google account data from database
+      const response = await fetch(`/api/user/google-account?userId=${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      console.log('🔐 Step 1 Response status:', response.status);
+      console.log('🔐 Step 1 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn('🔐 ⚠️ Google account not found for user. User needs to connect Google account first.');
+          console.warn('🔐 ⚠️ This is normal if the user hasn\'t completed Google OAuth yet.');
+          console.warn('🔐 ⚠️ User should go to profile/settings and connect their Google account.');
+        } else {
+          console.error('🔐 ❌ Error fetching Google account. Status:', response.status);
+          const errorText = await response.text();
+          console.error('🔐 ❌ Error response body:', errorText);
+        }
+        return;
+      }
+
+      const googleAccount = await response.json();
+      console.log('🔐 Step 1 SUCCESS: Google account data retrieved:', {
+        hasEmail: !!googleAccount?.email,
+        hasAccessToken: !!googleAccount?.accessToken,
+        hasRefreshToken: !!googleAccount?.refreshToken,
+        email: googleAccount?.email,
+        accountKeys: Object.keys(googleAccount || {})
+      });
+      
+      if (!googleAccount || !googleAccount.accessToken) {
+        console.error('🔐 ❌ No valid Google credentials found in response');
+        console.error('🔐 ❌ Google account object:', googleAccount);
+        return;
+      }
+
+      console.log('🔐 Step 2: Preparing to save credentials to backend...');
+      
+      const savePayload = {
+        email: googleAccount.email,
+        credentials: {
+          access_token: googleAccount.accessToken,
+          refresh_token: googleAccount.refreshToken || '',
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+          client_secret: '', // This will be handled on the server side
+        },
+        session_id: session_id
+      };
+      
+      console.log('🔐 Step 2: Save payload prepared:', {
+        email: savePayload.email,
+        hasAccessToken: !!savePayload.credentials.access_token,
+        hasRefreshToken: !!savePayload.credentials.refresh_token,
+        hasClientId: !!savePayload.credentials.client_id,
+        sessionId: savePayload.session_id,
+        walletAddress: user?.walletAddress
+      });
+
+      // Save credentials using the save route
+      const saveResponse = await fetch('/api/auth/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-address': user?.walletAddress || '',
+        },
+        body: JSON.stringify(savePayload)
+      });
+
+      console.log('🔐 Step 2 Response status:', saveResponse.status);
+      console.log('🔐 Step 2 Response headers:', Object.fromEntries(saveResponse.headers.entries()));
+
+      const saveResult = await saveResponse.json();
+      console.log('🔐 Step 2 Response body:', saveResult);
+      
+      if (saveResponse.ok) {
+        console.log('🔐 ✅ Google credentials saved successfully!');
+        console.log('🔐 ✅ Save result:', saveResult);
+      } else {
+        console.error('🔐 ❌ Failed to save Google credentials');
+        console.error('🔐 ❌ Save response status:', saveResponse.status);
+        console.error('🔐 ❌ Save result:', saveResult);
+      }
+      
+    } catch (error) {
+      console.error('🔐 💥 FATAL ERROR in fetchAndSaveGoogleCredentials:', error);
+      console.error('🔐 💥 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    }
+    
+    console.log('🔐 === GOOGLE CREDENTIALS FETCH PROCESS COMPLETE ===');
+  };
+
+
   if (loading) {
     return (
       <SidebarProvider>
@@ -832,6 +1066,16 @@ export default function ExecutingPage() {
                 Restart Session
               </Button>
               <Button
+                onClick={getSummary}
+                disabled={!isConnected || !sessionId}
+                variant="outline"
+                className="w-full justify-start h-10 mb-3"
+                size="sm"
+              >
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Refresh Summary
+              </Button>
+              <Button
                 onClick={endSession}
                 disabled={!isConnected}
                 variant="destructive"
@@ -892,20 +1136,20 @@ export default function ExecutingPage() {
               <div className="rounded-xl border-2 border-border bg-muted/30 p-4 space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="text-center p-3  rounded-lg border border-border/50">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Budget Left</div>
+                      <div className="text-xl font-bold text-primary">{summaryData.budget_left || 0}</div>
+                    </div>
+                    <div className="text-center p-3 rounded-lg border border-border/50">
                       <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Candidates</div>
-                      <div className="text-xl font-bold text-primary">{summaryData.candidates_found || 0}</div>
+                      <div className="text-xl font-bold text-primary">{summaryData.candidates?.length || 0}</div>
                     </div>
                     <div className="text-center p-3 rounded-lg border border-border/50">
                       <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Top Picks</div>
-                      <div className="text-xl font-bold text-primary">{summaryData.top_candidates || 0}</div>
+                      <div className="text-xl font-bold text-primary">{summaryData.scored_candidates?.length || 0}</div>
                     </div>
                     <div className="text-center p-3 rounded-lg border border-border/50">
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Messages</div>
-                      <div className="text-xl font-bold text-primary">{summaryData.outreach_messages || 0}</div>
-                    </div>
-                    <div className="text-center p-3 rounded-lg border border-border/50">
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Meetings</div>
-                      <div className="text-xl font-bold text-primary">{summaryData.meetings_scheduled || 0}</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Outreach</div>
+                      <div className="text-xl font-bold text-primary">{summaryData.outreach_messages?.length || 0}</div>
                     </div>
                   </div>
                   <div className="pt-3 border-t border-border/50">
@@ -997,9 +1241,10 @@ export default function ExecutingPage() {
 
         {/* Main Chat Area */}
         <div className="flex flex-1 flex-col h-screen">
-          {/* Chat Header */}
-          <div className="bg-background border-b border-border p-6 flex-shrink-0">
-            <div className="flex items-center justify-between max-w-4xl mx-auto flex-row">
+          {/* Chat Header - Fixed */}
+          <div className="bg-background border-b border-border p-6 flex-shrink-0 fixed top-0 left-80 right-0 z-20">
+            <div className="flex items-center justify-between max-w-4xl mx-auto">
+              <div className="flex flex-col">
                 <h2 className="text-xl font-bold text-foreground flex items-center">
                   <MessageSquare className="w-5 h-5 mr-3" />
                   {campaign?.title || 'Outreach Campaign'}
@@ -1008,6 +1253,7 @@ export default function ExecutingPage() {
                   <Clock className="w-4 h-4 mr-2" />
                   {waitingForInput ? 'Agent is processing your request...' : 'Chat with your AI outreach agent'}
                 </p>
+              </div>
               {waitingForInput && (
                 <Card className="bg-muted border-border">
                   <CardContent className="px-4 py-2 flex items-center space-x-3">
@@ -1020,8 +1266,8 @@ export default function ExecutingPage() {
           </div>
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-4xl mx-auto py-8 px-6 pb-32">
+          <div className="flex-1 overflow-y-auto pt-24 pb-24">
+            <div className="max-w-4xl mx-auto py-8 px-6">
 
               {/* Empty state */}
               {streamMessages.length === 0 && !waitingForInput && (
@@ -1115,25 +1361,28 @@ export default function ExecutingPage() {
                 {waitingForInput && (
                   <div className="flex justify-start opacity-100 transform translate-y-0 transition-all duration-300">
                     <div className="max-w-2xl mr-16">
-                      <Card className="bg-card text-card-foreground shadow-lg transition-all duration-300 hover:shadow-xl">
+                      <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 shadow-lg transition-all duration-300 hover:shadow-xl">
                         <CardContent className="p-5">
                           <div className="flex items-center space-x-3">
-                            <div className="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-200 flex items-center justify-center shadow-sm">
-                              <Coffee className="w-4 h-4 text-purple-600 animate-pulse" />
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center shadow-lg">
+                              <Brain className="w-5 h-5 text-white animate-pulse" />
                             </div>
-                            <div>
-                              <div className="text-sm font-bold text-foreground mb-2">
-                                Agent is thinking...
+                            <div className="flex-1">
+                              <div className="text-lg font-bold text-foreground mb-2 flex items-center">
+                                <span>Agent is thinking</span>
+                                <div className="flex space-x-1 ml-2">
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                                </div>
                               </div>
                               {currentInputPrompt && (
-                                <div className="text-sm text-muted-foreground max-w-md mb-3 font-medium">
-                                  {currentInputPrompt}
+                                <div className="text-sm text-purple-700 max-w-md mb-3 font-medium bg-white/50 p-2 rounded border border-purple-200">
+                                  <strong>Processing:</strong> {currentInputPrompt}
                                 </div>
                               )}
-                              <div className="flex space-x-1">
-                                <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
-                                <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                                <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                              <div className="text-xs text-purple-600 font-medium">
+                                Processing your request... Please wait for a response.
                               </div>
                             </div>
                           </div>
@@ -1148,8 +1397,36 @@ export default function ExecutingPage() {
           </div>
 
           {/* Input Area - Fixed at bottom */}
-          <div className="bg-background border-t border-border pt-4 pb-4 flex-shrink-0 fixed bottom-0 right-0 left-80 z-10">
+          <div className="bg-background border-t border-border pt-4 pb-4 flex-shrink-0 fixed bottom-0 right-0 left-80 z-30">
             <div className="max-w-4xl mx-auto px-6">
+              {/* Input State Indicator */}
+              {waitingForInput && (
+                <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-yellow-600" />
+                    <span className="text-sm font-medium text-yellow-800">
+                      Agent is thinking... Please wait for a response before sending another message.
+                    </span>
+                  </div>
+                  {currentInputPrompt && (
+                    <div className="mt-2 text-sm text-yellow-700">
+                      <strong>Prompt:</strong> {currentInputPrompt}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {!isConnected && (
+                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 text-red-600" />
+                    <span className="text-sm font-medium text-red-800">
+                      Not connected to agent. Please wait for connection or restart session.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <form onSubmit={(e) => { e.preventDefault(); handleInputSubmit(); }}>
                 <div className="flex items-center space-x-3">
                   <div className="flex-1 relative">
@@ -1162,30 +1439,63 @@ export default function ExecutingPage() {
                           handleInputSubmit();
                         }
                       }}
-                      placeholder={waitingForInput ? "Agent is processing..." : "Message your outreach agent..."}
-                      className="w-full h-14 px-6 text-sm resize-none transition-all duration-200 rounded-lg border-border bg-background"
-                      disabled={!isConnected}
+                      placeholder={
+                        !isConnected 
+                          ? "Connecting to agent..." 
+                          : waitingForInput 
+                            ? "Agent is thinking... Please wait..." 
+                            : "Message your outreach agent..."
+                      }
+                      className={`w-full h-14 px-6 text-sm resize-none transition-all duration-200 rounded-lg border-border bg-background ${
+                        waitingForInput || !isConnected 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'hover:border-primary/50 focus:border-primary'
+                      }`}
+                      disabled={!isConnected || waitingForInput}
                     />
+                    {(waitingForInput || !isConnected) && (
+                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
                   </div>
                   <Button 
                     type="submit"
                     className="h-14 w-14 p-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                    disabled={!inputValue.trim() || !isConnected}
+                    disabled={!inputValue.trim() || !isConnected || waitingForInput}
                   >
-                    <Send className="w-5 h-5" />
+                    {waitingForInput ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
                   </Button>
                 </div>
               </form>
               <div className="mt-3 text-xs text-muted-foreground text-center flex items-center justify-center space-x-4">
-                <span className="flex items-center">
-                  <span className="w-4 h-4 mr-1">⏎</span>
-                  Send message
-                </span>
-                <span className="text-border">•</span>
-                <span className="flex items-center ">
-                  <span className="w-4 h-4 mr-4">⇧⏎</span>
-                  <span>New line</span>
-                </span>
+                {isConnected && !waitingForInput ? (
+                  <>
+                    <span className="flex items-center">
+                      <span className="w-4 h-4 mr-1">⏎</span>
+                      Send message
+                    </span>
+                    <span className="text-border">•</span>
+                    <span className="flex items-center">
+                      <span className="w-4 h-4 mr-4">⇧⏎</span>
+                      <span>New line</span>
+                    </span>
+                  </>
+                ) : waitingForInput ? (
+                  <span className="flex items-center text-yellow-600">
+                    <Clock className="w-3 h-3 mr-2" />
+                    Waiting for agent response...
+                  </span>
+                ) : (
+                  <span className="flex items-center text-red-600">
+                    <AlertCircle className="w-3 h-3 mr-2" />
+                    Connecting to agent...
+                  </span>
+                )}
               </div>
             </div>
           </div>

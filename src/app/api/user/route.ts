@@ -15,6 +15,15 @@ export async function GET(request: NextRequest) {
         
         const data = await prisma.user.findFirst({
             where: { walletAddress },
+            include: {
+                googleAccount: {
+                    select: {
+                        id: true,
+                        email: true,
+                        createdAt: true
+                    }
+                }
+            }
         });
         
         if (!data) {
