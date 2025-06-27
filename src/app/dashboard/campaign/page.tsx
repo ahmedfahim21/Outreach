@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  DollarSign,
   Eye,
   Search
 } from "lucide-react";
@@ -18,14 +19,11 @@ interface Campaign {
   userId: string;
   title: string;
   description: string;
-  searchIntent: string;
-  customSearchIntent?: string;
   targetSkills: string[];
   selectedTools: string[];
   totalBudgetInUSDC: number;
   totalBudgetInEURC: number;
-  autoNegotiation: boolean;
-  autoFollowups: boolean;
+  isPaid: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -136,11 +134,19 @@ export default function CampaignsPage() {
                 </div>
 
                 <div className="flex justify-end gap-1">
-                  <Link href={`/dashboard/campaign/${campaign.id}`}>
-                    <Button variant="ghost" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </Link>
+                  {campaign.isPaid ?(
+                    <Link href={`/dashboard/campaign/${campaign.id}`}>
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" /> View
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link href={`/paywall?campaignId=${campaign.id}`}>
+                      <Button variant="ghost" size="sm">
+                        <DollarSign className="h-4 w-4 mr-1" /> Complete Payment
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </CardContent>
             </Card>
