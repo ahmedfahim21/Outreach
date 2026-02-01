@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader, SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { Loader2, Send, CheckCircle, AlertCircle, Users, MessageSquare, Play, Square, Bot, Zap, Target, TrendingUp, Clock, Activity, Sparkles, ArrowLeft, Settings, Brain, Eye, Hash } from "lucide-react";
+import { Loader2, Send, CheckCircle, AlertCircle, Users, MessageSquare, Play, Square, Bot, Zap, Target, TrendingUp, Clock, Activity, Sparkles, ArrowLeft, Settings, Brain, Eye, Hash, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -21,6 +21,7 @@ interface Campaign {
   selectedTools: string[];
   totalBudgetInUSDC: number;
   totalBudgetInEURC: number;
+  totalBudgetForOutreach: number;
   autoNegotiation: boolean;
   autoFollowups: boolean;
   isPaid: boolean;
@@ -92,10 +93,14 @@ export default function ExecutingPage() {
   const [currentInputPrompt, setCurrentInputPrompt] = useState("");
   const [pendingInitialMessage, setPendingInitialMessage] = useState<string | null>(null);
   const [actualContacts, setActualContacts] = useState<Contact[]>([]);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [lastHeartbeat, setLastHeartbeat] = useState<Date | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
 
   // Debug effect to track sessionId changes
@@ -103,6 +108,90 @@ export default function ExecutingPage() {
     console.log('SessionId changed to:', sessionId);
     sessionIdRef.current = sessionId;
   }, [sessionId]);
+
+  // Cleanup effect for timeouts
+  useEffect(() => {
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (heartbeatTimeoutRef.current) {
+        clearTimeout(heartbeatTimeoutRef.current);
+      }
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
+
+  // Heartbeat monitoring effect
+  useEffect(() => {
+    if (!isConnected || !sessionIdRef.current) return;
+
+    // Clear existing heartbeat timeout
+    if (heartbeatTimeoutRef.current) {
+      clearTimeout(heartbeatTimeoutRef.current);
+    }
+
+    // Set up heartbeat timeout (30 seconds without heartbeat = reconnect)
+    heartbeatTimeoutRef.current = setTimeout(() => {
+      console.log('💗 ⚠️ No heartbeat received for 30 seconds, attempting reconnection...');
+      if (sessionIdRef.current) {
+        attemptReconnection(sessionIdRef.current);
+      }
+    }, 30000);
+
+    return () => {
+      if (heartbeatTimeoutRef.current) {
+        clearTimeout(heartbeatTimeoutRef.current);
+      }
+    };
+  }, [lastHeartbeat, isConnected]);
+
+  const attemptReconnection = useCallback(async (sessionId: string) => {
+    console.log('🔄 Attempting to reconnect to stream...', {
+      sessionId: sessionId.substring(0, 8) + '...',
+      attempts: reconnectAttempts
+    });
+
+    // Don't attempt more than 5 reconnections
+    if (reconnectAttempts >= 5) {
+      console.error('❌ Max reconnection attempts reached. Please restart session.');
+      setStreamMessages(prev => [...prev, {
+        type: 'error',
+        content: 'Connection lost. Maximum reconnection attempts reached. Please restart the session.',
+        timestamp: new Date().toISOString()
+      }]);
+      return;
+    }
+
+    setReconnectAttempts(prev => prev + 1);
+    setIsConnected(false);
+
+    // Wait with exponential backoff
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+    console.log(`⏳ Waiting ${delay}ms before reconnection attempt...`);
+
+    reconnectTimeoutRef.current = setTimeout(async () => {
+      try {
+        console.log('🔌 Attempting reconnection...');
+        await connectToStream(sessionId);
+        
+        // Reset reconnect attempts on successful connection
+        setTimeout(() => {
+          if (isConnected) {
+            console.log('✅ Reconnection successful, resetting attempt counter');
+            setReconnectAttempts(0);
+          }
+        }, 2000);
+        
+      } catch (error) {
+        console.error('💥 Reconnection failed:', error);
+        // Try again
+        setTimeout(() => attemptReconnection(sessionId), delay);
+      }
+    }, delay);
+  }, [reconnectAttempts, isConnected]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -334,6 +423,14 @@ export default function ExecutingPage() {
       eventSourceRef.current.close();
     }
 
+    // Clear any existing timeouts
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+    if (heartbeatTimeoutRef.current) {
+      clearTimeout(heartbeatTimeoutRef.current);
+    }
+
     try {
       console.log('🔌 Creating new EventSource connection...');
       const eventSource = new EventSource(`/api/ai/stream/${sessionId}`);
@@ -343,6 +440,7 @@ export default function ExecutingPage() {
       eventSource.onopen = () => {
         console.log('✅ EventSource connection opened');
         setIsConnected(true);
+        setLastHeartbeat(new Date());
       };
 
       eventSource.onmessage = (event) => {
@@ -357,6 +455,7 @@ export default function ExecutingPage() {
             console.log('🤝 Stream connection confirmed');
             setIsConnected(true);
             setStreamReady(true);
+            setLastHeartbeat(new Date());
             
             // Try to fetch existing summary when connection is established
             console.log('📊 Auto-fetching summary on connection...');
@@ -371,6 +470,7 @@ export default function ExecutingPage() {
           if (data.type === 'heartbeat') {
             console.log('💗 Heartbeat received');
             setIsConnected(true);
+            setLastHeartbeat(new Date());
             return;
           }
           
@@ -385,12 +485,30 @@ export default function ExecutingPage() {
         console.error('❌ EventSource error:', error);
         setIsConnected(false);
         eventSource.close();
+        
+        // Auto-reconnect if we have a session ID and haven't exceeded max attempts
+        if (sessionIdRef.current && reconnectAttempts < 5) {
+          console.log('🔄 Stream error detected, scheduling reconnection...');
+          setTimeout(() => {
+            if (sessionIdRef.current) {
+              attemptReconnection(sessionIdRef.current);
+            }
+          }, 2000);
+        }
       };
 
     } catch (error) {
       console.error('💥 Error connecting to stream:', error);
+      // Try to reconnect after a delay
+      if (sessionIdRef.current && reconnectAttempts < 5) {
+        setTimeout(() => {
+          if (sessionIdRef.current) {
+            attemptReconnection(sessionIdRef.current);
+          }
+        }, 3000);
+      }
     }
-  }, [handleStreamMessage]);
+  }, [handleStreamMessage, reconnectAttempts, attemptReconnection]);
 
   // Effect to send initial message when stream is ready
   useEffect(() => {
@@ -538,10 +656,10 @@ export default function ExecutingPage() {
         // Prepare the initial message
         const initialMessage = `${campaignData.description}
           Looking for People with Skills: ${campaignData.targetSkills.join(', ')}
-          With a budget of ${campaignData.totalBudgetInUSDC} USDC}
+          We can provide them a fee of ${campaignData.totalBudgetForOutreach} USDC}
           My details:
-          Name: ${user?.name || 'Unknown'}
-          Email: ${user?.contactEmail || 'Unknown'}
+          Name: Abhishek Satpathy 
+          Email: abhisheksatpathy4848@gmail.com
           Setup the budget first and then move to the next step.
           `;
 
@@ -1034,6 +1152,18 @@ export default function ExecutingPage() {
                 <Play className="w-4 h-4 mr-2" />
                 Restart Session
               </Button>
+              {!isConnected && sessionIdRef.current && (
+                <Button
+                  onClick={() => sessionIdRef.current && attemptReconnection(sessionIdRef.current)}
+                  disabled={waitingForInput || reconnectAttempts >= 5}
+                  variant="outline"
+                  className="w-full justify-start h-10 mb-3"
+                  size="sm"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Reconnect Stream
+                </Button>
+              )}
               <Button
                 onClick={getSummary}
                 disabled={!isConnected || !sessionId}
@@ -1081,7 +1211,7 @@ export default function ExecutingPage() {
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Budget</div>
-                      <div className="text-sm font-bold text-foreground">{campaign.totalBudgetInUSDC} USDC</div>
+                      <div className="text-sm font-bold text-foreground">{campaign.totalBudgetForOutreach} USDC</div>
                     </div>
                   </div>
                   <div>
@@ -1185,7 +1315,7 @@ export default function ExecutingPage() {
           <div className="py-4 px-2">
             {/* Connection Status */}
             <div className="rounded-xl border-2 border-border bg-muted/30 mb-6 overflow-hidden p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-foreground flex items-center">
                     <Activity className="w-4 h-4 mr-2" />
                     Agent Status
@@ -1195,6 +1325,17 @@ export default function ExecutingPage() {
                     <span className="text-xs font-medium text-muted-foreground">{isConnected ? 'Connected' : 'Disconnected'}</span>
                   </div>
                 </div>
+                {!isConnected && reconnectAttempts > 0 && (
+                  <div className="text-xs text-muted-foreground flex items-center">
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Reconnect attempts: {reconnectAttempts}/5
+                  </div>
+                )}
+                {lastHeartbeat && (
+                  <div className="text-xs text-muted-foreground">
+                    Last heartbeat: {formatTime(lastHeartbeat.toISOString())}
+                  </div>
+                )}
             </div>
             <div className="text-center">
               <p className="text-xs text-muted-foreground">
@@ -1390,9 +1531,17 @@ export default function ExecutingPage() {
                   <div className="flex items-center space-x-2">
                     <AlertCircle className="w-4 h-4 text-red-600" />
                     <span className="text-sm font-medium text-red-800">
-                      Not connected to agent. Please wait for connection or restart session.
+                      {reconnectAttempts > 0 
+                        ? `Connection lost. Attempting to reconnect... (${reconnectAttempts}/5)`
+                        : 'Not connected to agent. Please wait for connection or restart session.'
+                      }
                     </span>
                   </div>
+                  {reconnectAttempts >= 5 && (
+                    <div className="mt-2 text-sm text-red-700">
+                      Maximum reconnection attempts reached. Please restart the session.
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1462,7 +1611,7 @@ export default function ExecutingPage() {
                 ) : (
                   <span className="flex items-center text-red-600">
                     <AlertCircle className="w-3 h-3 mr-2" />
-                    Connecting to agent...
+                    {reconnectAttempts > 0 ? `Reconnecting... (${reconnectAttempts}/5)` : 'Connecting to agent...'}
                   </span>
                 )}
               </div>
